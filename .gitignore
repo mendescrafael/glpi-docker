@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2026 Rafael Mendes
 #
-# This file is part of {Nome do projeto}.
+# This file is part of GLPI Docker.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@ Thumbs.db
 # -----------------------------------------------------------------------------
 data/app/config/*
 !data/app/config/.gitkeep
+!data/app/config/local_define.php
 
 # -----------------------------------------------------------------------------
 # Diretório de dumps (backups) do banco de dados.

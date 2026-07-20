@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2026 Rafael Mendes
 #
-# This file is part of {Nome do projeto}.
+# This file is part of GLPI Docker.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -196,24 +196,24 @@ add-user-groups: check
 	printf "IMPORTANTE: Faça logout/login (ou reinicie a sessão) para que a alteração tenha efeito.\n\n"
 
 info: check
-	@printf "\nAbaixo estão disponíveis as especificações de versões dos artefatos usados no projeto.\n\n"
+	@printf "\nAbaixo estão disponíveis as especificações dos artefatos usados no projeto.\n\n"
 
-	@printf "+----------------------------------+----------------------------------------------------+\n"
-	@printf "| %-32s | %-50s |\n" "Propriedade" "Valor"
-	@printf "+----------------------------------+----------------------------------------------------+\n"
-	@printf "| %-32s | %-50s |\n" "Projeto" "$(PROJECT_NAME)"
-	@printf "| %-34s | %-50s |\n" "Descrição" "$(PROJECT_DESCRIPTION)"
-	@printf "| %-32s | %-50s |\n" "Autor" "$(PROJECT_AUTHORS)"
-	@printf "| %-33s | %-50s |\n" "Licença" "$(LICENSE)"
-	@printf "+----------------------------------+----------------------------------------------------+\n"
-	@printf "| %-32s | %-50s |\n" "Nome da imagem (Docker)" "$(APP_NAME)-$(CLIENT_ID)"
-	@printf "| %-32s | %-50s |\n" "Tag da imagem (Docker)" "$(TAG_IMAGE)"
-	@printf "| %-35s | %-50s |\n" "Versão da aplicação" "$(APP_VERSION)"
-	@printf "| %-33s | %-50s |\n" "Revisão (Git hash ID)" "$(REVISION)"
-	@printf "+----------------------------------+----------------------------------------------------+\n"
-	@printf "| %-32s | %-50s |\n" "Imagem base (App) (Dockerfile)" "$(APP_BASE_IMG)"
-	@printf "| %-32s | %-50s |\n" "Imagem base (DB) (Ambiente dev)" "$(DB_BASE_IMG)"
-	@printf "+----------------------------------+----------------------------------------------------+\n\n"
+	@printf "+----------------------------------+--------------------------------------------------------------+\n"
+	@printf "| %-32s | %-60s |\n" "Propriedade" "Valor"
+	@printf "+----------------------------------+--------------------------------------------------------------+\n"
+	@printf "| %-32s | %-60s |\n" "Projeto" "$(PROJECT_NAME)"
+	@printf "| %-34s | %-64s |\n" "Descrição" "$(PROJECT_DESCRIPTION)"
+	@printf "| %-32s | %-60s |\n" "Autor" "$(PROJECT_AUTHORS)"
+	@printf "| %-33s | %-60s |\n" "Licença" "$(LICENSE)"
+	@printf "+----------------------------------+--------------------------------------------------------------+\n"
+	@printf "| %-32s | %-60s |\n" "Nome da imagem (Docker)" "$(APP_NAME)-$(CLIENT_ID)"
+	@printf "| %-32s | %-60s |\n" "Tag da imagem (Docker)" "$(TAG_IMAGE)"
+	@printf "| %-35s | %-60s |\n" "Versão da aplicação" "$(APP_VERSION)"
+	@printf "| %-33s | %-60s |\n" "Revisão (Git hash ID)" "$(REVISION)"
+	@printf "+----------------------------------+--------------------------------------------------------------+\n"
+	@printf "| %-32s | %-60s |\n" "Imagem base (App) (Dockerfile)" "$(APP_BASE_IMG)"
+	@printf "| %-32s | %-60s |\n" "Imagem base (DB) (Ambiente dev)" "$(DB_BASE_IMG)"
+	@printf "+----------------------------------+--------------------------------------------------------------+\n\n"
 
 	@printf "Para mais informações, consulte o arquivo 'README.md'.\n"
 	@printf "Para ajuda, execute: make help\n\n"

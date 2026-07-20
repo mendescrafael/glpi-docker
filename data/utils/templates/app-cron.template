@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2026 Rafael Mendes
 #
-# This file is part of {Nome do projeto}.
+# This file is part of GLPI Docker.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,4 +20,4 @@
 # -----------------------------------------------------------------------------
 
 # Cron da aplicação.
-*/1 * * * *     www-data    date &>/dev/null
+*/1 * * * *     www-data    /usr/local/bin/php ${APP_DIR}/front/cron.php &>/dev/null
