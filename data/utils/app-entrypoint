@@ -1,0 +1,284 @@
+#!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Copyright (c) 2026 Rafael Mendes
+#
+# This file is part of {Nome do projeto}.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# -----------------------------------------------------------------------------
+
+### BEGIN INIT INFO
+# Description:      Processo de inicialização, responsável por executar tarefas
+#                   de configuração antes da inicialização da aplicação.
+### END INIT INFO
+#
+# Author: Rafael Mendes <mendescrafael@outlook.com>
+
+# Interrompe o script em caso de erros.
+set -e
+
+# Função auxiliar para saídas de logs.
+function log() {
+    printf '[%(%Y-%m-%d %H:%M:%S)T] %s\n' -1 "$*"
+}
+
+# Validação de variáveis de ambiente obrigatórias.
+function validate_envs() {
+    local type="$1"
+    shift
+
+    log "Validando variáveis de ambiente obrigatórias..."
+
+    for var in "$@"; do
+        if [[ -z "${!var:-}" ]]; then
+            log "[ ERROR ] Variável obrigatória não definida: '${var}'"
+            exit 1
+        fi
+
+        log "[ OK ] Variável obrigatória definida: '${var}'"
+    done
+
+    log "[ OK ] Todos as variáveis obrigatórias foram definidas"
+}
+
+# Validação dos diretórios e arquivos obrigatórios.
+function validate_paths() {
+    local type="$1"
+    shift
+
+    case "${type}" in
+        dir)
+            log "Validando diretórios obrigatórios..."
+
+            for path in "$@"; do
+                [[ -z "${path}" ]] && {
+                    log "[ ERROR ] Caminho de diretório vazio"
+                    exit 1
+                }
+
+                if [[ ! -d "${path}" ]]; then
+                    log "[ INFO ] Diretório '${path}' não encontrado. Criando..."
+
+                    mkdir -p "${path}" || {
+                        log "[ ERROR ] Não foi possível criar o diretório: '${path}'"
+                        exit 1
+                    }
+
+                    log "[ OK ] Diretório criado: '${path}'"
+                else
+                    log "[ OK ] Diretório encontrado: '${path}'"
+                fi
+            done
+            ;;
+        file)
+            log "Validando arquivos obrigatórios..."
+
+            for path in "$@"; do
+                [[ -z "${path}" ]] && {
+                    log "[ ERROR ] Caminho de arquivo vazio"
+                    exit 1
+                }
+
+                if [[ ! -f "${path}" ]]; then
+                    log "[ ERROR ] Arquivo obrigatório não encontrado: '${path}'"
+                    exit 1
+                fi
+
+                log "[ OK ] Arquivo encontrado: '${path}'"
+            done
+            ;;
+        *)
+            log "[ ERROR ] Tipo de validação inválido: '${type}'"
+            exit 1
+            ;;
+    esac
+
+    log "[ OK ] Validação concluída com sucesso"
+}
+
+# Substituição de variáveis dos templates.
+function expand_templates() {
+    local vars="$1"
+    local src="$2"
+    local dst="$3"
+
+    log "Substituindo variáveis do template '${src}'..."
+    envsubst "${vars}" \
+        < "${src}" \
+        > "${dst}"
+    log "[ OK ] Substituição realizada com sucesso. Arquivo copiado para '${dst}'"
+}
+
+# Configuração da aplicação.
+function app_config() {
+    log "Inicializando configurações da aplicação..."
+
+    # Usuário e Grupo dono dos arquivos e diretórios (UID e GID).
+    # - Usuário: www-data
+    # - Grupo: www-data
+    local uid_gid=www-data:www-data
+
+    # Ajuste de permissões do diretório de aplicação.
+    log "Ajustando permissões de '${APP_DIR}'..."
+    chown -R ${uid_gid} "${APP_DIR}" \
+        && find "${APP_DIR}" -type d -exec chmod 775 {} \; \
+        && find "${APP_DIR}" -type f -exec chmod 664 {} \; \
+        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_DIR}'"
+
+    # Ajuste de permissões do diretório de configuração (arquivos de conexão
+    # com banco de dados).
+    log "Ajustando permissões de '${APP_CONFIG_DIR}'..."
+    chown -R ${uid_gid} "${APP_CONFIG_DIR}" \
+        && find "${APP_CONFIG_DIR}" -type d -exec chmod 775 {} \; \
+        && find "${APP_CONFIG_DIR}" -type f -exec chmod 664 {} \; \
+        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_CONFIG_DIR}'"
+
+    # Ajuste de permissões do diretório de persistência de dados.
+    log "Ajustando permissões de '${APP_VAR_DIR}'..."
+    chown -R ${uid_gid} "${APP_VAR_DIR}" \
+        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_VAR_DIR}'"
+}
+
+# Configuração do Cron.
+function cron_config() {
+    log "Inicializando configurações do Cron..."
+
+    # Substituição de variáveis do template Cron.
+    local vars='${APP_DIR}'
+    expand_templates \
+        "${vars}" \
+        "${CRON_TEMPLATE_FILE}" \
+        "${CRON_FILE}"
+
+    # Ajuste de permissões no arquivo cron.
+    log "Ajustando permissões do arquivo cron '${CRON_FILE}'..."
+    test -f "${CRON_FILE}" \
+        && chmod 644 "${CRON_FILE}" \
+        && log "[ OK ] Permissões para '${CRON_FILE}' ajustadas com sucesso"
+
+    # Exporta todas as variáveis do ambiente para o cron.
+    log "Exportando variáveis de ambiente para '/etc/environment'..."
+    printenv | grep -v "no_proxy" > /etc/environment \
+        && log "[ OK ] Variáveis exportadas com sucesso"
+        
+    # Inicia o serviço de cron.
+    log "Iniciando o Cron..."
+    service cron start \
+        && log "[ OK ] Cron iniciado com sucesso"
+}
+
+# Configuração do web server.
+function webserver_config() {
+    log "Inicializando configurações do web server..."
+
+    # Substituição de variáveis de configuração do site para o web server.
+    local vars_app_cnf='${APP_SERVICE} ${ENV_TYPE}'
+    expand_templates \
+        "${vars_app_cnf}" \
+        "${WEBSERVER_CFG_TEMPLATE}" \
+        "${WEBSERVER_CFG_FILE}"
+
+    # Substituição de variáveis do site para o web server.
+    local vars_app_site='${WEBSERVER_PORT} ${WEBSERVER_PORT_SSL} ${WEBSERVER_DOMAIN_NAME} ${WEBSERVER_SITE_ROOT_DIR} ${WEBSERVER_ADMIN_EMAIL} ${SSL_CERT_FILE} ${SSL_KEY_FILE}'
+    expand_templates \
+        "${vars_app_site}" \
+        "${WEBSERVER_VHOST_TEMPLATE}" \
+        "${WEBSERVER_VHOST_FILE}"
+
+    # Ajuste de permissões do diretório de certificados SSL.
+    log "Ajustando permissões de '${SSL_DIR}'..."
+    find "${SSL_DIR}" -type d -exec chmod 710 {} \; \
+        && find "${SSL_DIR}" -type f -exec chmod 640 {} \; \
+        && log "[ OK ] Permissões ajustadas com sucesso para '${SSL_DIR}'"
+
+    # Habilitando configurações do web server.
+    log "Habilitando configurações do web server..."
+    local app_cfg=$(basename "${WEBSERVER_CFG_FILE}")
+    local app_vhost=$(basename "${WEBSERVER_VHOST_FILE}")
+    local default_vhost="000-default.conf"
+    a2enconf "${app_cfg}" \
+        && a2ensite "${app_vhost}" \
+        && a2dissite "${default_vhost}" \
+        && log "[ OK ] Configurações habilitadas com sucesso"
+
+    # Validação das configurações.
+    log "Validando configuração do web server..."
+    apache2ctl configtest || exit 1
+
+    # Inicia o processo principal do container.
+    log "Iniciando processo principal (${APP_SERVICE})..."
+    exec apache2-foreground
+}
+
+# Função principal de inicialização.
+function init() {
+    log "Inicializando ENTRYPOINT..."
+
+    # Validação de variáveis de ambiente obrigatórias.
+    validate_envs \
+        "APP_DIR" \
+        "APP_CONFIG_DIR" \
+        "APP_VAR_DIR" \
+        "APP_SERVICE" \
+        "CRON_DIR" \
+        "CRON_TEMPLATE_FILE" \
+        "CRON_FILE" \
+        "DB_HOST" \
+        "DB_USER" \
+        "DB_PASS" \
+        "DB_NAME" \
+        "ENV_TYPE" \
+        "SSL_DIR" \
+        "SSL_CERT_FILE" \
+        "SSL_KEY_FILE" \
+        "TEMPLATES_DIR" \
+        "WEBSERVER_DIR" \
+        "WEBSERVER_CFG_TEMPLATE" \
+        "WEBSERVER_CFG_FILE" \
+        "WEBSERVER_VHOST_TEMPLATE" \
+        "WEBSERVER_VHOST_FILE" \
+        "WEBSERVER_SITE_ROOT_DIR" \
+        "WEBSERVER_DOMAIN_NAME" \
+        "WEBSERVER_ADMIN_EMAIL" \
+        "WEBSERVER_PORT" \
+        "WEBSERVER_PORT_SSL"
+
+    # Validação dos diretórios obrigatórios.
+    validate_paths dir \
+        "${APP_DIR}" \
+        "${APP_CONFIG_DIR}" \
+        "${APP_VAR_DIR}" \
+        "${CRON_DIR}" \
+        "${SSL_DIR}" \
+        "${TEMPLATES_DIR}" \
+        "${WEBSERVER_DIR}" \
+        "${WEBSERVER_SITE_ROOT_DIR}"
+
+    # Validação dos arquivos obrigatórios.
+    validate_paths file \
+        "${CRON_TEMPLATE_FILE}" \
+        "${WEBSERVER_CFG_TEMPLATE}" \
+        "${WEBSERVER_VHOST_TEMPLATE}" \
+        "${SSL_CERT_FILE}" \
+        "${SSL_KEY_FILE}"
+
+    app_config
+    cron_config
+    webserver_config
+}
+
+init

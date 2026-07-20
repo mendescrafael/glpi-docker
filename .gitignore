@@ -1,0 +1,84 @@
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Copyright (c) 2026 Rafael Mendes
+#
+# This file is part of {Nome do projeto}.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Arquivos de IDEs, OS, etc.
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# -----------------------------------------------------------------------------
+# Backups, logs, etc.
+# -----------------------------------------------------------------------------
+**/*.log
+
+# -----------------------------------------------------------------------------
+# Arquivos de configuração de ambiente.
+# -----------------------------------------------------------------------------
+.env*
+!.env.example
+!.env.dev.example
+
+# -----------------------------------------------------------------------------
+# Diretório de configuração (conexão com banco de dados).
+# -----------------------------------------------------------------------------
+data/app/config/*
+!data/app/config/.gitkeep
+
+# -----------------------------------------------------------------------------
+# Diretório de dumps (backups) do banco de dados.
+# -----------------------------------------------------------------------------
+data/db/dumps/*
+!data/db/dumps/.gitkeep
+
+# -----------------------------------------------------------------------------
+# Diretório de armazenamento de arquivos diversos.
+# -----------------------------------------------------------------------------
+data/misc/*
+!data/misc/.gitkeep
+
+# -----------------------------------------------------------------------------
+# Diretório de certificados SSL.
+# -----------------------------------------------------------------------------
+data/utils/ssl/*
+!data/utils/ssl/.gitkeep
+!data/utils/ssl/*.example
+
+# -----------------------------------------------------------------------------
+# Diretório de persistência de dados.
+# -----------------------------------------------------------------------------
+app/files/*
+!app/files/.gitkeep
+!app/files/.htaccess
+
+!app/files/_*/
+app/files/_*/*
+!app/files/_*/.gitkeep
+
+data/app/files/*
+!data/app/files/.gitkeep
+!data/app/files/.htaccess
+
+!data/app/files/_*/
+data/app/files/_*/*
+!data/app/files/_*/.gitkeep

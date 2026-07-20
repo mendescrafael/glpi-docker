@@ -1,0 +1,82 @@
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Copyright (c) 2026 Rafael Mendes
+#
+# This file is part of {Nome do projeto}.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Docker Compose override para ambiente de desenvolvimento.
+#
+# Use este arquivo com os comandos `make build-dev` e `make up-dev`. Para ajuda,
+# execute: `make help` (na raiz do projeto).
+#
+# Para mais informações, consulte o arquivo `README.md`.
+# -----------------------------------------------------------------------------
+
+volumes:
+  db_vol:
+    name: ${APP_NAME}-${CLIENT_ID}-${DB_SERVICE}-${ENV_TYPE}
+
+services:
+  app:
+    env_file:
+      - .env
+      - .env.dev
+    build:
+      target: ${ENV_TYPE}
+    restart: no
+    volumes:
+      - ./app:${APP_DIR}:rw
+      - ./data/app/config:${APP_CONFIG_DIR}:rw
+
+  db:
+    env_file:
+      - .env
+      - .env.dev
+    image: ${DB_BASE_IMG}
+    container_name: ${APP_NAME}-${CLIENT_ID}-db-${DB_SERVICE}-${ENV_TYPE}
+    hostname: db-${DB_SERVICE}-${ENV_TYPE}
+    restart: no
+    networks:
+      - app_net
+    environment:
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - TZ=${TZ}
+    ports:
+      - "${MYSQL_PORT}:${MYSQL_PORT}"
+    volumes:
+      - db_vol:${DB_DIR}:rw
+      - ./data/db/dumps:${DB_DUMPS_DIR}:rw
+    command:
+      --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+      --innodb_file_per_table=1
+      --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"

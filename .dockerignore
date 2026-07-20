@@ -1,0 +1,56 @@
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Copyright (c) 2026 Rafael Mendes
+#
+# This file is part of {Nome do projeto}.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Arquivos de IDEs, OS, etc.
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# -----------------------------------------------------------------------------
+# Backups, logs, etc.
+# -----------------------------------------------------------------------------
+*.sql
+*.tar
+*.gz
+*.zip
+*.log
+*.swp
+*.bak
+*.tmp
+
+# -----------------------------------------------------------------------------
+# Git e Configurações.
+# -----------------------------------------------------------------------------
+.git
+.gitignore
+.env
+docker-compose*.yml
+Makefile
+
+# -----------------------------------------------------------------------------
+# Outros.
+# -----------------------------------------------------------------------------
+tests/
+scripts/
+vendor/

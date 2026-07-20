@@ -1,0 +1,103 @@
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Copyright (c) 2026 Rafael Mendes
+#
+# This file is part of {Nome do projeto}.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# -----------------------------------------------------------------------------
+
+# Define o nome da Stack no Docker.
+name: ${APP_NAME}-${CLIENT_ID}-${ENV_TYPE}
+
+networks:
+  app_net:
+    name: ${APP_NAME}-${CLIENT_ID}
+    driver: bridge
+
+services:
+  app:
+    env_file:
+      - .env
+    build:
+      context: .
+      target: ${ENV_TYPE}
+      args:
+        - APP_BASE_IMG=${APP_BASE_IMG}
+        - APP_DIR=${APP_DIR}
+        - APP_CONFIG_DIR=${APP_CONFIG_DIR}
+        - BUILD_DATE=${BUILD_DATE}
+        - ENV_TYPE=${ENV_TYPE}
+        - LICENSE=${LICENSE}
+        - PROJECT_NAME=${PROJECT_NAME}
+        - PROJECT_DESCRIPTION=${PROJECT_DESCRIPTION}
+        - PROJECT_AUTHORS=${PROJECT_AUTHORS}
+        - REVISION=${REVISION}
+        - SSL_DIR=${SSL_DIR}
+        - TAG_IMAGE=${TAG_IMAGE:-latest}
+        - TEMPLATES_DIR=${TEMPLATES_DIR}
+        - TZ=${TZ}
+        - VENDOR_LABEL=${VENDOR_LABEL:-Contoso}
+        - WEBSERVER_PORT=${WEBSERVER_PORT}
+        - WEBSERVER_PORT_SSL=${WEBSERVER_PORT_SSL}
+    image: ${VENDOR_ID}/${APP_NAME}-${CLIENT_ID}:${TAG_IMAGE:-latest}
+    container_name: ${APP_NAME}-${CLIENT_ID}-app-${APP_SERVICE}-${ENV_TYPE}
+    hostname: app-${APP_SERVICE}-${ENV_TYPE}
+    restart: always
+    networks:
+      - app_net
+    environment:
+      - APP_DIR=${APP_DIR}
+      - APP_CONFIG_DIR=${APP_CONFIG_DIR}
+      - APP_VAR_DIR=${APP_VAR_DIR}
+      - APP_SERVICE=${APP_SERVICE}
+      - CRON_DIR=${CRON_DIR}
+      - CRON_TEMPLATE_FILE=${CRON_TEMPLATE_FILE}
+      - CRON_FILE=${CRON_FILE}
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+      - ENV_TYPE=${ENV_TYPE}
+      - SSL_DIR=${SSL_DIR}
+      - SSL_CERT_FILE=${SSL_CERT_FILE}
+      - SSL_KEY_FILE=${SSL_KEY_FILE}
+      - TEMPLATES_DIR=${TEMPLATES_DIR}
+      - WEBSERVER_DIR=${WEBSERVER_DIR}
+      - WEBSERVER_CFG_TEMPLATE=${WEBSERVER_CFG_TEMPLATE}
+      - WEBSERVER_CFG_FILE=${WEBSERVER_CFG_FILE}
+      - WEBSERVER_VHOST_TEMPLATE=${WEBSERVER_VHOST_TEMPLATE}
+      - WEBSERVER_VHOST_FILE=${WEBSERVER_VHOST_FILE}
+      - WEBSERVER_SITE_ROOT_DIR=${WEBSERVER_SITE_ROOT_DIR}
+      - WEBSERVER_DOMAIN_NAME=${WEBSERVER_DOMAIN_NAME}
+      - WEBSERVER_ADMIN_EMAIL=${WEBSERVER_ADMIN_EMAIL}
+      - WEBSERVER_PORT=${WEBSERVER_PORT}
+      - WEBSERVER_PORT_SSL=${WEBSERVER_PORT_SSL}
+    ports:
+      - "${WEBSERVER_PORT}:${WEBSERVER_PORT}"
+      - "${WEBSERVER_PORT_SSL}:${WEBSERVER_PORT_SSL}"
+    volumes:
+      - ./data/app/files:${APP_VAR_DIR}:rw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
