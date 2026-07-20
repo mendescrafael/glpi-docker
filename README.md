@@ -1,8 +1,25 @@
-# 1. {Nome do projeto}
+# 1. GLPI Docker
 
 ## 1.1 Sobre a aplicação
 
-_Descreva aqui informações sobre a aplicação._
+O GLPI (Gestionnaire Libre de Parc Informatique) é uma plataforma **Open Source** de Gerenciamento de Serviços de TI (ITSM) e Gerenciamento de Ativos de TI (ITAM). Desenvolvido para atender às melhores práticas de gestão de serviços, o GLPI oferece recursos para centralizar operações de Service Desk, Inventário de Ativos, Gestão de Contratos, controle de Licenças, Base de Conhecimento, Gestão de Mudanças, Projetos e muito mais.
+
+A plataforma permite automatizar processos, acompanhar indicadores operacionais e garantir maior governança sobre a infraestrutura de TI, sendo amplamente utilizada por organizações de todos os portes.
+
+Entre seus principais recursos estão:
+
+- Gerenciamento de Chamados (Help Desk e Service Desk);
+- Catálogo de Serviços;
+- Inventário de Ativos de hardware e software;
+- CMDB (Configuration Management Database);
+- Gestão de Contratos, Fornecedores e Licenças;
+- Base de Conhecimento (Knowledge Base);
+- Gestão de Mudanças, Problemas e Projetos;
+- Controle de SLAs e escalonamentos;
+- Dashboards e relatórios gerenciais;
+- Integração com LDAP, Active Directory, Microsoft Entra ID, APIs e diversas ferramentas de monitoramento.
+
+Saiba mais sobre o GLPI em: https://www.glpi-project.org/.
 
 ## 1.2 Projeto de conteinerização Docker
 
@@ -103,7 +120,9 @@ Essa abordagem reduz a necessidade de manter Dockerfiles distintos para cada pro
 ├── data/
 │   ├── app/
 │   │   ├── config/
-│   │   └── files/
+│   │   ├── files/
+│   │   ├── marketplace/
+│   │   └── plugins/
 │   ├── db/
 │   │   └── dumps/
 │   ├── misc/
@@ -133,8 +152,10 @@ Essa abordagem reduz a necessidade de manter Dockerfiles distintos para cada pro
 - `app/`: Diretório base para o código-fonte da aplicação.
 - `data/`: Diretório de dados para concentrar arquivos essenciais.
   - `app/`: Arquivos e diretórios auxiliares para a aplicação.
-    - `config/`: Diretório de configuração (arquivos de conexão com banco de dados), copiado para `APP_CONFIG_DIR` no container de aplicação.
-    - `files/`: Diretório de persistência de dados, montado em `APP_VAR_DIR` no container de aplicação.
+    - `config/`: Diretório de configuração (arquivos de conexão com banco de dados), montado em `APP_CONFIG_DIR` no container de aplicação.
+    - `files/`: Diretório de arquivos, montado em `APP_FILES_DIR` no container de aplicação.
+    - `marketplace/`: Plugins instalados a partir do Marketplace do GLPI, montado em `${APP_DIR}/marketplace/` no container de aplicação.
+    - `plugins/`: Plugins instalados manualmente no GLPI (modo legacy), montado em `${APP_DIR}/plugins/` no container de aplicação.
   - `db/`:
     - `dumps/` (conteúdo **NÃO** rastreado pelo Git): Dumps (backups) do banco de dados, montado em `DB_DUMPS_DIR` no container de banco de dados (**ambiente de desenvolvimento**). Para mais informações, consulte a propriedade `volumes` do arquivo `docker-compose.dev.yml`.
   - `misc/` (conteúdo **NÃO** rastreado pelo Git): Diretório de armazenamento de arquivos diversos. Use para armazenar arquivos úteis provenientes do ambiente de desenvolvimento.
@@ -201,24 +222,24 @@ Exemplo de saída do comando `make info`:
 ```text
 $ make info
 
-Abaixo estão disponíveis as especificações de versões dos artefatos usados no projeto.
+Abaixo estão disponíveis as especificações dos artefatos usados no projeto.
 
-+----------------------------------+----------------------------------------------------+
-| Propriedade                      | Valor                                              |
-+----------------------------------+----------------------------------------------------+
-| Projeto                          | GLPI Docker                                        |
-| Descrição                        | Imagem Docker personalizada para a aplicação GLPI. |
-| Autor                            | Rafael Mendes <mendescrafael@outlook.com>          |
-| Licença                          | GPLv3                                              |
-+----------------------------------+----------------------------------------------------+
-| Nome da imagem (Docker)          | glpi-contoso                                       |
-| Tag da imagem (Docker)           | 11.0.8-991a33a                                     |
-| Versão da aplicação              | 11.0.8                                             |
-| Revisão (Git hash ID)            | 991a33a                                            |
-+----------------------------------+----------------------------------------------------+
-| Imagem base (App) (Dockerfile)   | php:8.5-apache                                     |
-| Imagem base (DB) (Ambiente dev)  | mysql:9.7                                          |
-+----------------------------------+----------------------------------------------------+
++----------------------------------+--------------------------------------------------------------+
+| Propriedade                      | Valor                                                        |
++----------------------------------+--------------------------------------------------------------+
+| Projeto                          | GLPI Docker                                                  |
+| Descrição                        | Projeto de conteinerização Docker para a aplicação GLPI.     |
+| Autor                            | Rafael Mendes <mendescrafael@outlook.com>                    |
+| Licença                          | GPLv3                                                        |
++----------------------------------+--------------------------------------------------------------+
+| Nome da imagem (Docker)          | glpi-contoso                                                 |
+| Tag da imagem (Docker)           | 11.0.8-8284fa2                                               |
+| Versão da aplicação              | 11.0.8                                                       |
+| Revisão (Git hash ID)            | 8284fa2                                                      |
++----------------------------------+--------------------------------------------------------------+
+| Imagem base (App) (Dockerfile)   | php:8.5-apache                                               |
+| Imagem base (DB) (Ambiente dev)  | mysql:9.7                                                    |
++----------------------------------+--------------------------------------------------------------+
 
 Para mais informações, consulte o arquivo 'README.md'.
 Para ajuda, execute: make help

@@ -5,7 +5,7 @@
 #
 # Copyright (c) 2026 Rafael Mendes
 #
-# This file is part of {Nome do projeto}.
+# This file is part of GLPI Docker.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -148,9 +148,9 @@ function app_config() {
         && log "[ OK ] Permissões ajustadas com sucesso para '${APP_CONFIG_DIR}'"
 
     # Ajuste de permissões do diretório de persistência de dados.
-    log "Ajustando permissões de '${APP_VAR_DIR}'..."
-    chown -R ${uid_gid} "${APP_VAR_DIR}" \
-        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_VAR_DIR}'"
+    log "Ajustando permissões de '${APP_FILES_DIR}'..."
+    chown -R ${uid_gid} "${APP_FILES_DIR}" \
+        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_FILES_DIR}'"
 }
 
 # Configuração do Cron.
@@ -232,7 +232,7 @@ function init() {
     validate_envs \
         "APP_DIR" \
         "APP_CONFIG_DIR" \
-        "APP_VAR_DIR" \
+        "APP_FILES_DIR" \
         "APP_SERVICE" \
         "CRON_DIR" \
         "CRON_TEMPLATE_FILE" \
@@ -261,7 +261,7 @@ function init() {
     validate_paths dir \
         "${APP_DIR}" \
         "${APP_CONFIG_DIR}" \
-        "${APP_VAR_DIR}" \
+        "${APP_FILES_DIR}" \
         "${CRON_DIR}" \
         "${SSL_DIR}" \
         "${TEMPLATES_DIR}" \

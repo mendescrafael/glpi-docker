@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2026 Rafael Mendes
 #
-# This file is part of {Nome do projeto}.
+# This file is part of GLPI Docker.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -66,7 +66,6 @@ FROM ${APP_BASE_IMG} AS base
 # Para mais informações, consulte os arquivos `docker-compose.yml`
 # e `docker-compose.dev.yml`. Veja também os arquivos `.env` e `.env.dev`.
 ARG APP_DIR
-ARG APP_CONFIG_DIR
 ARG BUILD_DATE
 ARG ENV_TYPE
 ARG LICENSE
@@ -148,10 +147,51 @@ ENTRYPOINT ["app-entrypoint"]
 # -----------------------------------------------------------------------------
 FROM base AS app
 
-# TODO: Adicione aqui as instruções para o build da imagem da aplicação comuns
-# aos dois ambientes (produção e desenvolvimento). Então, especialize as instruções
-# apropriadas nos estágios abaixo.
+# Dependências necessárias para compilar extensões PHP.
+RUN apt-get install -y --no-install-recommends \
+    libfreetype6-dev \
+    libjpeg-dev \
+    libldap2-dev \
+    libicu-dev \
+    libzip-dev \
+    libexif-dev \
+    libbz2-dev
 
+# Extensões do core PHP para a aplicação (obrigatórias e opcionais).
+#
+# Algumas extensões listadas como obrigatórios e opcionais já estão inclusas na
+# imagem base do PHP, por esse motivo não há necessidade de instalá-las novamente:
+# https://glpi-install.readthedocs.io/en/latest/prerequisites.html#php
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ \
+    && docker-php-ext-install -j$(nproc) \
+    gd \
+    ldap \
+    intl \
+    zip \
+    exif \
+    bz2 \
+    mysqli \
+    bcmath
+
+# Configurações base do PHP.
+RUN { \
+    echo 'log_errors = on'; \
+    echo 'memory_limit = 512M'; \
+    echo 'post_max_size = 25M'; \
+    echo 'upload_max_filesize = 25M'; \
+    echo 'session.cookie_secure = on'; \
+    echo 'session.cookie_samesite = Lax'; \
+    echo 'session.cookie_lifetime = 43200'; \
+    echo 'session.gc_maxlifetime = 43200'; \
+    echo 'session.gc_probability = 1'; \
+    echo 'session.gc_divisor = 100'; \
+    echo 'opcache.enable_cli = 1'; \
+    echo 'opcache.enable = 1'; \
+    echo 'opcache.save_comments = 1'; \
+    echo 'opcache.validate_timestamps = 0'; \
+    echo 'opcache.revalidate_freq = 0'; \
+    } > /usr/local/etc/php/conf.d/app.ini
 # -----------------------------------------------------------------------------
 # [END] Multi-stage: APP
 # -----------------------------------------------------------------------------
@@ -176,8 +216,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     dnsutils
 
-# TODO: Adicione aqui as instruções para o build da imagem da aplicação voltada
-# ao ambiente de desenvolvimento.
+# Configurações de desenvolvimento do PHP.
+RUN { \
+    echo 'display_errors = on'; \
+    echo 'display_startup_errors = on'; \
+    echo 'error_reporting = E_ALL'; \
+    echo 'max_execution_time = 0'; \
+    echo 'zend.assertions = 1'; \
+    echo 'assert.exception = 1'; \
+    echo 'session.cookie_httponly = off'; \
+    echo 'opcache.memory_consumption = 256'; \
+    echo 'opcache.interned_strings_buffer = 16'; \
+    echo 'opcache.max_accelerated_files = 10000'; \
+    } > /usr/local/etc/php/conf.d/app-${ENV_TYPE}.ini
 
 # Portas de serviço para a aplicação.
 EXPOSE ${WEBSERVER_PORT} ${WEBSERVER_PORT_SSL}
@@ -194,8 +245,21 @@ EXPOSE ${WEBSERVER_PORT} ${WEBSERVER_PORT_SSL}
 # -----------------------------------------------------------------------------
 FROM app AS prd
 
-# TODO: Adicione aqui as instruções para o build da imagem da aplicação voltada
-# ao ambiente de produção.
+# Configurações produção do PHP.
+RUN { \
+    echo 'display_errors = off'; \
+    echo 'display_startup_errors = off'; \
+    echo 'error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT'; \
+    echo 'max_execution_time = 300'; \
+    echo 'expose_php = off'; \
+    echo 'realpath_cache_size = 4096K'; \
+    echo 'realpath_cache_ttl = 600'; \
+    echo 'session.use_strict_mode = on'; \
+    echo 'session.cookie_httponly = on'; \
+    echo 'opcache.memory_consumption = 512'; \
+    echo 'opcache.interned_strings_buffer = 32'; \
+    echo 'opcache.max_accelerated_files = 20000'; \
+    } > /usr/local/etc/php/conf.d/app-${ENV_TYPE}.ini
 
 # Limpeza de cache do apt-get.
 RUN apt-get clean \
