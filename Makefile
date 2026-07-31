@@ -1,7 +1,9 @@
 # -----------------------------------------------------------------------------
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Copyright (c) 2026 Rafael Mendes
+# @copyright Copyright (c) 2026 Rafael Mendes
+# @license   GPLv3+ <https://www.gnu.org/licenses/gpl-3.0.html>
+# @link      GitHub <https://github.com/mendescrafael>
 #
 # This file is part of GLPI Docker.
 #
@@ -28,17 +30,21 @@ SHELL := /bin/bash
 ENV_FILE ?= .env
 ENV_FILE_DEV ?= .env.dev
 
+# Arquivos Docker Compose.
+DOCKER_COMPOSE_FILE ?= docker-compose.yml
+DOCKER_COMPOSE_FILE_DEV ?= docker-compose.dev.yml
+
 COMPOSE := docker compose \
 	--env-file $(ENV_FILE) \
-	-f docker-compose.yml
+	-f $(DOCKER_COMPOSE_FILE)
 
 COMPOSE_DEV := docker compose \
 	--env-file $(ENV_FILE) \
 	--env-file $(ENV_FILE_DEV) \
-	-f docker-compose.yml \
-	-f docker-compose.dev.yml
+	-f $(DOCKER_COMPOSE_FILE) \
+	-f $(DOCKER_COMPOSE_FILE_DEV)
 
-# Nome dos serviços Docker Compose (veja 'docker-compose.yml' e 'docker-compose.dev.yml').
+# Nome dos serviços Docker Compose (veja `docker-compose.yml` e `docker-compose.dev.yml`).
 SERVICE_APP ?= app
 SERVICE_DB ?= db
 
@@ -46,11 +52,16 @@ SERVICE_DB ?= db
 EXECUTABLE_DB ?= mysql
 EXECUTABLE_DB_DUMP ?= mysqldump
 
-# Usuário e Grupo dono dos arquivos e diretórios do projeto (UID e GID).
-OWNER ?= $(shell id -un)
-GROUP ?= docker
+# Usuário (UID) e grupo (GID) dono dos arquivos e diretórios do projeto.
+# Para usuário considera-se o usuário atual (`id -un`). Para grupo
+# considera-se o grupo `DOCKER_GROUP` (grupo gerenciado pelo Docker).
+CURRENT_USER ?= $(shell id -un)
 
-# Função para ler variáveis do '.env'.
+# Largura de tabela para saída de dados na CLI.
+PROP_WIDTH  := 35
+VALUE_WIDTH := 80
+
+# Função para ler os valores de variáveis do arquivo '.env'.
 define getenv
 $(shell \
 	if [ -f $(ENV_FILE) ]; then \
@@ -64,26 +75,29 @@ $(shell \
 	fi)
 endef
 
+# Valores das variáveis de ambiente extraídos e atribuídos as suas respectivas variáveis.
+APP_BASE_IMG := $(call getenv,APP_BASE_IMG)
+APP_NAME := $(call getenv,APP_NAME)
+APP_VERSION := $(call getenv,APP_VERSION)
+CLIENT_ID := $(call getenv,CLIENT_ID)
+DB_BASE_IMG := $(call getenv,DB_BASE_IMG)
+DOCKER_GROUP := $(call getenv,DOCKER_GROUP)
+LICENSE := $(call getenv,LICENSE)
 PROJECT_NAME := $(call getenv,PROJECT_NAME)
 PROJECT_DESCRIPTION := $(call getenv,PROJECT_DESCRIPTION)
 PROJECT_AUTHORS := $(call getenv,PROJECT_AUTHORS)
-LICENSE := $(call getenv,LICENSE)
-APP_NAME := $(call getenv,APP_NAME)
-CLIENT_ID := $(call getenv,CLIENT_ID)
-APP_BASE_IMG := $(call getenv,APP_BASE_IMG)
-DB_BASE_IMG := $(call getenv,DB_BASE_IMG)
-APP_VERSION := $(call getenv,APP_VERSION)
+WEBSERVER_GROUP := $(call getenv,WEBSERVER_GROUP)
 
 # Captura o Git hash ID do último commit (veja `git log`).
 # Adiciona também '-dirty' se houver arquivos modificados não 
-# commitados ou mantém 'REVISION' vazio se não houver um repositório Git.
+# commitados ou mantém `REVISION` vazio se não houver um repositório Git.
 REVISION := $(shell \
 	if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
 		printf "%s" "$$(git rev-parse --short HEAD)"; \
 		git diff --quiet || printf "%s" "-dirty"; \
 	fi)
 
-# Exporta a variável para o Docker Compose.
+# Exporta a variável para o Docker Compose capturar (usadas nos metadados do Dockerfile).
 export TAG_IMAGE := $(APP_VERSION)$(if $(strip $(REVISION)),-$(REVISION))
 export BUILD_DATE := $(shell date '+%Y-%m-%d %H:%M')
 export REVISION
@@ -123,7 +137,7 @@ export REVISION
 	db-cli-dev \
 	db-dump-dev \
 	db-restore-dev \
-	prune \
+	prune-cache \
 	prune-volumes \
 	prune-networks \
 	clean \
@@ -145,8 +159,8 @@ check:
 	@for file in \
 		$(ENV_FILE) \
 		$(ENV_FILE_DEV) \
-		docker-compose.yml \
-		docker-compose.dev.yml \
+		$(DOCKER_COMPOSE_FILE) \
+		$(DOCKER_COMPOSE_FILE_DEV) \
 		Dockerfile; do \
 		[ -f "$$file" ] || { \
 			printf "[ ERROR ] Arquivo '%s' não encontrado. Consulte o arquivo 'README.md' para obter ajudar.\n\n" "$$file"; \
@@ -154,7 +168,7 @@ check:
 		}; \
 	done
 
-# Verifica se os comandos necessários para ações com banco de dados estão disponíveis.
+# Verifica se os comandos necessários para ações em banco de dados estão disponíveis.
 check-db-commands:
 	@for cmd in $(EXECUTABLE_DB) $(EXECUTABLE_DB_DUMP); do \
 		command -v $$cmd >/dev/null 2>&1 || { \
@@ -166,8 +180,8 @@ check-db-commands:
 apply-permissions: check
 	@printf "\nAplicando permissões de arquivos e diretórios em: '$(CURDIR)'\n\n"
 
-	@printf "Alterando proprietário para '%s:%s'...\n" "$(OWNER)" "$(GROUP)"
-	@sudo chown -R $(OWNER):$(GROUP) .
+	@printf "Alterando proprietário para '%s:%s'...\n" "$(CURRENT_USER)" "$(DOCKER_GROUP)"
+	@sudo chown -R $(CURRENT_USER):$(DOCKER_GROUP) .
 	
 	@printf "Aplicando permissões aos diretórios (775 -> 'rwxrwxr-x')...\n"
 	@sudo find . -type d -exec chmod 775 {} \;
@@ -178,8 +192,8 @@ apply-permissions: check
 	@printf "\nPermissões aplicadas com sucesso.\n\n"
 
 add-user-groups: check
-	@USER="$(OWNER)"; \
-	for GROUP in docker www-data; do \
+	@USER="$(CURRENT_USER)"; \
+	for GROUP in $(DOCKER_GROUP) $(WEBSERVER_GROUP); do \
 		printf "Verificando grupo '%s'...\n" "$$GROUP"; \
 		if ! getent group "$$GROUP" >/dev/null; then \
 			printf "[ ERROR ] Grupo '%s' não encontrado.\n\n" "$$GROUP"; \
@@ -196,27 +210,45 @@ add-user-groups: check
 	printf "IMPORTANTE: Faça logout/login (ou reinicie a sessão) para que a alteração tenha efeito.\n\n"
 
 info: check
-	@printf "\nAbaixo estão disponíveis as especificações dos artefatos usados no projeto.\n\n"
-
-	@printf "+----------------------------------+--------------------------------------------------------------+\n"
-	@printf "| %-32s | %-60s |\n" "Propriedade" "Valor"
-	@printf "+----------------------------------+--------------------------------------------------------------+\n"
-	@printf "| %-32s | %-60s |\n" "Projeto" "$(PROJECT_NAME)"
-	@printf "| %-34s | %-64s |\n" "Descrição" "$(PROJECT_DESCRIPTION)"
-	@printf "| %-32s | %-60s |\n" "Autor" "$(PROJECT_AUTHORS)"
-	@printf "| %-33s | %-60s |\n" "Licença" "$(LICENSE)"
-	@printf "+----------------------------------+--------------------------------------------------------------+\n"
-	@printf "| %-32s | %-60s |\n" "Nome da imagem (Docker)" "$(APP_NAME)-$(CLIENT_ID)"
-	@printf "| %-32s | %-60s |\n" "Tag da imagem (Docker)" "$(TAG_IMAGE)"
-	@printf "| %-35s | %-60s |\n" "Versão da aplicação" "$(APP_VERSION)"
-	@printf "| %-33s | %-60s |\n" "Revisão (Git hash ID)" "$(REVISION)"
-	@printf "+----------------------------------+--------------------------------------------------------------+\n"
-	@printf "| %-32s | %-60s |\n" "Imagem base (App) (Dockerfile)" "$(APP_BASE_IMG)"
-	@printf "| %-32s | %-60s |\n" "Imagem base (DB) (Ambiente dev)" "$(DB_BASE_IMG)"
-	@printf "+----------------------------------+--------------------------------------------------------------+\n\n"
-
-	@printf "Para mais informações, consulte o arquivo 'README.md'.\n"
-	@printf "Para ajuda, execute: make help\n\n"
+	@PROP_WIDTH=$(PROP_WIDTH); \
+	VALUE_WIDTH=$(VALUE_WIDTH); \
+	border() { \
+		printf '+'; \
+		printf '%*s' $$((PROP_WIDTH + 2)) '' | tr ' ' '-'; \
+		printf '+'; \
+		printf '%*s' $$((VALUE_WIDTH + 2)) '' | tr ' ' '-'; \
+		printf '+\n'; \
+	}; \
+	row() { \
+		prop="$$1"; \
+		value="$$2"; \
+		prop_padding=$$((PROP_WIDTH - $${#prop})); \
+		value_padding=$$((VALUE_WIDTH - $${#value})); \
+		(( prop_padding < 0 )) && prop_padding=0; \
+		(( value_padding < 0 )) && value_padding=0; \
+		printf '| %s%*s | %s%*s |\n' \
+			"$$prop" "$$prop_padding" '' \
+			"$$value" "$$value_padding" ''; \
+	}; \
+	printf "\nAbaixo estão disponíveis as especificações dos artefatos usados no projeto.\n\n"; \
+	border; \
+	row "Propriedade" "Valor"; \
+	border; \
+	row "Projeto" "$(PROJECT_NAME)"; \
+	row "Descrição" "$(PROJECT_DESCRIPTION)"; \
+	row "Autor" "$(PROJECT_AUTHORS)"; \
+	row "Licença" "$(LICENSE)"; \
+	border; \
+	row "Nome da imagem (Docker)" "$(APP_NAME)-$(CLIENT_ID)"; \
+	row "Tag da imagem (Docker)" "$(TAG_IMAGE)"; \
+	row "Versão da aplicação" "$(APP_VERSION)"; \
+	row "Revisão (Git hash ID)" "$(REVISION)"; \
+	border; \
+	row "Imagem base (App) (Dockerfile)" "$(APP_BASE_IMG)"; \
+	row "Imagem base (DB) (Ambiente dev)" "$(DB_BASE_IMG)"; \
+	border; \
+	printf "\nPara mais informações, consulte o arquivo 'README.md'.\n"; \
+	printf "Para ajuda, execute: make help\n\n"
 
 build: check
 	@$(COMPOSE) build
@@ -248,8 +280,8 @@ deploy-dev: build-dev up-dev
 rebuild: down build up
 rebuild-dev: down-dev build-dev up-dev
 
-restart: down up
-restart-dev: down-dev up-dev
+restart: stop up
+restart-dev: stop-dev up-dev
 
 status: check
 	@$(COMPOSE) ps
@@ -306,7 +338,7 @@ db-restore-dev: check-db-commands
 	[ -n "$$DUMP_SQL" ] || read -p "Arquivo de dump SQL: " DUMP_SQL; \
 	$(EXECUTABLE_DB) -v -u "$$USER" -p "$$DB" < "$$DUMP_SQL"
 
-prune: check
+prune-cache: check
 	@docker builder prune -af
 
 prune-volumes: check
@@ -315,7 +347,7 @@ prune-volumes: check
 prune-networks: check
 	@docker network prune -f
 
-clean: prune prune-volumes prune-networks
+clean: prune-cache prune-volumes prune-networks
 
 list-images: check
 	@docker image ls
@@ -331,9 +363,16 @@ list-networks: check
 
 list-all: list-images list-volumes list-networks
 
-version:
+version: check
 	@printf "%s\n" "$(TAG_IMAGE)"
-	
+
+# TODO: Adicione aqui alvos para comandos específicos da aplicação.
+glpi-cache-clear: check
+	@$(COMPOSE) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console cache:clear" $(WEBSERVER_GROUP)
+
+glpi-cache-clear-dev: check
+	@$(COMPOSE_DEV) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console cache:clear" $(WEBSERVER_GROUP)
+
 help:
 	@printf "Uso: make [COMANDO] [ARG...]\n\n"
 
@@ -359,7 +398,7 @@ help:
 	@printf "  %-25s %s\n" "rebuild," "Reconstrói as imagens e recria os containers."
 	@printf "    rebuild-dev\n\n"
 	
-	@printf "  %-25s %s\n" "restart," "Recria e inicia novamente os containers."
+	@printf "  %-25s %s\n" "restart," "Para e inicia novamente os containers."
 	@printf "    restart-dev\n\n"
 
 	@printf "  %-25s %s\n" "status," "Lista os containers em execução gerenciados pelo Docker Compose."
@@ -395,7 +434,7 @@ help:
 	@printf "    DATABASE_DUMP_SQL=<DUMP_SQL>\n\n"
 
 	@printf "Limpeza de ambiente:\n"
-	@printf "  %-25s %s\n\n" "prune" "Remove o cache de construção (build cache) não utilizado pelo Docker."
+	@printf "  %-25s %s\n\n" "prune-cache" "Remove o cache de construção (build cache) não utilizado pelo Docker."
 	@printf "  %-25s %s\n\n" "" "CUIDADO! Os comandos abaixo podem apagar os recursos criados."
 	@printf "  %-25s %s\n" "prune-volumes" "Remove todos os volumes Docker que não estão em uso."
 	@printf "  %-25s %s\n" "prune-networks" "Remove todas as redes Docker que não estão sendo utilizadas."
@@ -412,13 +451,17 @@ help:
 	@printf "  %-25s %s\n\n" "" "a permissões nos arquivos e diretórios do projeto."
 
 	@printf "  %-25s %s\n" "apply-permissions" "Aplica as permissões de usuário e grupo dono nos arquivos e diretórios do projeto."
-	@printf "  %-25s %s\n" "" "Para usuário considera-se o usuário atual (id -un) e para grupo considera-se"
-	@printf "  %-25s %s\n\n" "" "o grupo 'docker' (grupo gerenciado pelo Docker)."
+	@printf "  %-25s %s\n" "" "Para usuário considera-se o usuário atual (`id -un`) e para grupo considera-se"
+	@printf "  %-25s %s\n\n" "" "o grupo '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)."
 
-	@printf "  %-25s %s\n" "add-user-groups" "Verifica e adiciona o usuário atual (id -un) aos grupos 'docker' (grupo gerenciado pelo Docker)"
-	@printf "  %-25s %s\n\n" "" "e 'www-data' (grupo gerenciado pelo web server)."
+	@printf "  %-25s %s\n" "add-user-groups" "Verifica e adiciona o usuário atual (`id -un`) aos grupos '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)"
+	@printf "  %-25s %s\n\n" "" "e '$(WEBSERVER_GROUP)' (grupo gerenciado pelo web server)."
 
 	@printf "Comandos comuns:\n"
 	@printf "  %-25s %s\n" "info" "Informações sobre o projeto."
 	@printf "  %-25s %s\n" "version" "Versão do projeto."
 	@printf "  %-25s %s\n\n" "help" "Este menu de ajuda."
+
+	@printf "Comandos específicos de gerenciamente e manutenção da aplicação:\n"
+	@printf "  %-25s %s\n" "glpi-cache-clear," "Limpa o cache do GLPI."
+	@printf "    glpi-cache-clear-dev\n\n"
