@@ -3,7 +3,9 @@
 # -----------------------------------------------------------------------------
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Copyright (c) 2026 Rafael Mendes
+# @copyright Copyright (c) 2026 Rafael Mendes
+# @license   GPLv3+ <https://www.gnu.org/licenses/gpl-3.0.html>
+# @link      GitHub <https://github.com/mendescrafael>
 #
 # This file is part of GLPI Docker.
 #
@@ -139,8 +141,7 @@ function app_config() {
         && find "${APP_DIR}" -type f -exec chmod 664 {} \; \
         && log "[ OK ] Permissões ajustadas com sucesso para '${APP_DIR}'"
 
-    # Ajuste de permissões do diretório de configuração (arquivos de conexão
-    # com banco de dados).
+    # Ajuste de permissões do diretório de configuração.
     log "Ajustando permissões de '${APP_CONFIG_DIR}'..."
     chown -R ${uid_gid} "${APP_CONFIG_DIR}" \
         && find "${APP_CONFIG_DIR}" -type d -exec chmod 775 {} \; \
@@ -186,7 +187,7 @@ function webserver_config() {
     log "Inicializando configurações do web server..."
 
     # Substituição de variáveis de configuração do site para o web server.
-    local vars_app_cnf='${APP_SERVICE} ${ENV_TYPE}'
+    local vars_app_cnf='${APP_SERVICE} ${APP_ENV}'
     expand_templates \
         "${vars_app_cnf}" \
         "${WEBSERVER_CFG_TEMPLATE}" \
@@ -241,7 +242,7 @@ function init() {
         "DB_USER" \
         "DB_PASS" \
         "DB_NAME" \
-        "ENV_TYPE" \
+        "APP_ENV" \
         "SSL_DIR" \
         "SSL_CERT_FILE" \
         "SSL_KEY_FILE" \

@@ -4,7 +4,9 @@
  * -----------------------------------------------------------------------------
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Copyright (c) 2026 Rafael Mendes
+ * @copyright Copyright (c) 2026 Rafael Mendes
+ * @license   GPLv3+ <https://www.gnu.org/licenses/gpl-3.0.html>
+ * @link      GitHub <https://github.com/mendescrafael>
  *
  * This file is part of GLPI Docker.
  *

@@ -1,7 +1,9 @@
 # -----------------------------------------------------------------------------
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Copyright (c) 2026 Rafael Mendes
+# @copyright Copyright (c) 2026 Rafael Mendes
+# @license   GPLv3+ <https://www.gnu.org/licenses/gpl-3.0.html>
+# @link      GitHub <https://github.com/mendescrafael>
 #
 # This file is part of GLPI Docker.
 #
@@ -20,7 +22,7 @@
 # -----------------------------------------------------------------------------
 
 # Define o nome da Stack no Docker.
-name: ${APP_NAME}-${CLIENT_ID}-${ENV_TYPE}
+name: ${APP_NAME}-${CLIENT_ID}-${APP_ENV}
 
 networks:
   app_net:
@@ -33,12 +35,12 @@ services:
       - .env
     build:
       context: .
-      target: ${ENV_TYPE}
+      target: ${APP_ENV}
       args:
         - APP_BASE_IMG=${APP_BASE_IMG}
         - APP_DIR=${APP_DIR}
         - BUILD_DATE=${BUILD_DATE}
-        - ENV_TYPE=${ENV_TYPE}
+        - APP_ENV=${APP_ENV}
         - LICENSE=${LICENSE}
         - PROJECT_NAME=${PROJECT_NAME}
         - PROJECT_DESCRIPTION=${PROJECT_DESCRIPTION}
@@ -52,8 +54,8 @@ services:
         - WEBSERVER_PORT=${WEBSERVER_PORT}
         - WEBSERVER_PORT_SSL=${WEBSERVER_PORT_SSL}
     image: ${VENDOR_ID}/${APP_NAME}-${CLIENT_ID}:${TAG_IMAGE:-latest}
-    container_name: ${APP_NAME}-${CLIENT_ID}-app-${APP_SERVICE}-${ENV_TYPE}
-    hostname: app-${APP_SERVICE}-${ENV_TYPE}
+    container_name: ${APP_NAME}-${CLIENT_ID}-app-${APP_SERVICE}-${APP_ENV}
+    hostname: app-${APP_SERVICE}-${APP_ENV}
     restart: always
     networks:
       - app_net
@@ -69,7 +71,7 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASS=${DB_PASS}
       - DB_NAME=${DB_NAME}
-      - ENV_TYPE=${ENV_TYPE}
+      - APP_ENV=${APP_ENV}
       - SSL_DIR=${SSL_DIR}
       - SSL_CERT_FILE=${SSL_CERT_FILE}
       - SSL_KEY_FILE=${SSL_KEY_FILE}
