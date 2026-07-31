@@ -1,7 +1,9 @@
 # -----------------------------------------------------------------------------
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Copyright (c) 2026 Rafael Mendes
+# @copyright Copyright (c) 2026 Rafael Mendes
+# @license   GPLv3+ <https://www.gnu.org/licenses/gpl-3.0.html>
+# @link      GitHub <https://github.com/mendescrafael>
 #
 # This file is part of GLPI Docker.
 #
@@ -28,18 +30,18 @@
 #
 # Estrutura dos estágios:
 #
-#   - base: Configuração e instalação de pacotes comuns, definição do processo
+#   - BASE: Configuração e instalação de pacotes comuns, definição do processo
 #           de inicialização (`ENTRYPOINT`) e demais componentes compartilhados
 #           por todos os ambientes.
 #
-#   - app: Código-fonte da aplicação, arquivos auxiliares, configurações da
+#   - APP: Código-fonte da aplicação, arquivos auxiliares, configurações da
 #          aplicação.
 #
-#   - dev: Especialização da imagem para desenvolvimento, adicionando ferramentas
+#   - DEV: Especialização da imagem para desenvolvimento, adicionando ferramentas
 #          de diagnóstico, depuração e configurações apropriadas para esse
 #          ambiente.
 #
-#   - prd: Especialização da imagem para produção, aplicando configurações focadas
+#   - PRD: Especialização da imagem para produção, aplicando configurações focadas
 #          em desempenho, segurança e estabilidade.
 #
 # O ambiente final é definido pelo parâmetro de build `target`, permitindo gerar
@@ -67,7 +69,7 @@ FROM ${APP_BASE_IMG} AS base
 # e `docker-compose.dev.yml`. Veja também os arquivos `.env` e `.env.dev`.
 ARG APP_DIR
 ARG BUILD_DATE
-ARG ENV_TYPE
+ARG APP_ENV
 ARG LICENSE
 ARG PROJECT_NAME
 ARG PROJECT_DESCRIPTION
@@ -177,27 +179,27 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
 # Configurações base do PHP.
 RUN { \
     echo 'log_errors = on'; \
+    echo 'error_reporting = E_ALL'; \
     echo 'memory_limit = 512M'; \
     echo 'post_max_size = 25M'; \
     echo 'upload_max_filesize = 25M'; \
     echo 'session.cookie_secure = on'; \
+    echo 'session.cookie_httponly = on'; \
     echo 'session.cookie_samesite = Lax'; \
     echo 'session.cookie_lifetime = 43200'; \
     echo 'session.gc_maxlifetime = 43200'; \
     echo 'session.gc_probability = 1'; \
     echo 'session.gc_divisor = 100'; \
-    echo 'opcache.enable_cli = 1'; \
+    echo 'session.use_strict_mode = on'; \
     echo 'opcache.enable = 1'; \
     echo 'opcache.save_comments = 1'; \
-    echo 'opcache.validate_timestamps = 0'; \
-    echo 'opcache.revalidate_freq = 0'; \
-    } > /usr/local/etc/php/conf.d/app.ini
+    } > /usr/local/etc/php/conf.d/10-app.ini
 # -----------------------------------------------------------------------------
 # [END] Multi-stage: APP
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# [BEGIN] Multi-stage: DESENVOLVIMENTO
+# [BEGIN] Multi-stage: DEV
 #
 # Estágio destinado ao ambiente de desenvolvimento. Estende o estágio 'app'
 # adicionando ferramentas de diagnóstico, edição e depuração, além de configurações
@@ -220,24 +222,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN { \
     echo 'display_errors = on'; \
     echo 'display_startup_errors = on'; \
-    echo 'error_reporting = E_ALL'; \
     echo 'max_execution_time = 0'; \
     echo 'zend.assertions = 1'; \
     echo 'assert.exception = 1'; \
-    echo 'session.cookie_httponly = off'; \
+    echo 'opcache.enable_cli = 0'; \
+    echo 'opcache.validate_timestamps = 1'; \
+    echo 'opcache.revalidate_freq = 0'; \
     echo 'opcache.memory_consumption = 256'; \
     echo 'opcache.interned_strings_buffer = 16'; \
     echo 'opcache.max_accelerated_files = 10000'; \
-    } > /usr/local/etc/php/conf.d/app-${ENV_TYPE}.ini
+    } > /usr/local/etc/php/conf.d/90-app-${ENV_TYPE}.ini
 
 # Portas de serviço para a aplicação.
 EXPOSE ${WEBSERVER_PORT} ${WEBSERVER_PORT_SSL}
 # -----------------------------------------------------------------------------
-# [END] Multi-stage: DESENVOLVIMENTO
+# [END] Multi-stage: DEV
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# [BEGIN] Multi-stage: PRODUÇÃO
+# [BEGIN] Multi-stage: PRD
 #
 # Estágio destinado ao ambiente de produção. Estende o estágio 'app' aplicando
 # configurações voltadas para desempenho, segurança e estabilidade, resultando
@@ -249,17 +252,17 @@ FROM app AS prd
 RUN { \
     echo 'display_errors = off'; \
     echo 'display_startup_errors = off'; \
-    echo 'error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT'; \
     echo 'max_execution_time = 300'; \
     echo 'expose_php = off'; \
     echo 'realpath_cache_size = 4096K'; \
     echo 'realpath_cache_ttl = 600'; \
-    echo 'session.use_strict_mode = on'; \
-    echo 'session.cookie_httponly = on'; \
+    echo 'opcache.enable_cli = 0'; \
+    echo 'opcache.validate_timestamps = 0'; \
+    echo 'opcache.revalidate_freq = 0'; \
     echo 'opcache.memory_consumption = 512'; \
     echo 'opcache.interned_strings_buffer = 32'; \
     echo 'opcache.max_accelerated_files = 20000'; \
-    } > /usr/local/etc/php/conf.d/app-${ENV_TYPE}.ini
+    } > /usr/local/etc/php/conf.d/90-app-${ENV_TYPE}.ini
 
 # Limpeza de cache do apt-get.
 RUN apt-get clean \
@@ -268,5 +271,5 @@ RUN apt-get clean \
 # Portas de serviço para a aplicação.
 EXPOSE ${WEBSERVER_PORT_SSL}
 # -----------------------------------------------------------------------------
-# [END] Multi-stage: PRODUÇÃO
+# [END] Multi-stage: PRD
 # -----------------------------------------------------------------------------
