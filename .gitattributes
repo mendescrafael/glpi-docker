@@ -1,0 +1,84 @@
+# -----------------------------------------------------------------------------
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# @copyright Copyright (c) 2026 Rafael Mendes
+# @license   GPLv3+ <https://www.gnu.org/licenses/gpl-3.0.html>
+# @link      GitHub <https://github.com/mendescrafael>
+#
+# This file is part of GLPI Docker.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Normalização de arquivos de texto.
+# -----------------------------------------------------------------------------
+* text=auto eol=lf
+
+# Scripts executados nativamente no Windows.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Arquivos de texto usados pelo projeto.
+*.md           text eol=lf diff=markdown
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.env          text eol=lf
+*.example      text eol=lf
+*.template     text eol=lf
+*.conf         text eol=lf
+*.sh           text eol=lf
+*.php          text eol=lf diff=php
+Dockerfile     text eol=lf
+Makefile       text eol=lf
+app-entrypoint text eol=lf
+
+# -----------------------------------------------------------------------------
+# Arquivos binários.
+# -----------------------------------------------------------------------------
+*.7z     binary
+*.base64 binary
+*.eot    binary
+*.exe    binary
+*.gif    binary
+*.gz     binary
+*.icc    binary
+*.ico    binary
+*.jpeg   binary
+*.jpg    binary
+*.mo     binary
+*.mp3    binary
+*.ogg    binary
+*.otf    binary
+*.pdf    binary
+*.png    binary
+*.sig    binary
+*.tar    binary
+*.ttf    binary
+*.woff   binary
+*.woff2  binary
+*.xlsx   binary
+*.z      binary
+*.zip    binary
+
+# -----------------------------------------------------------------------------
+# Classificação de dependências e arquivos gerados no GitHub Linguist.
+# -----------------------------------------------------------------------------
+app/vendor/**              -text linguist-vendored=true
+app/public/lib/**          linguist-vendored=true
+app/public/build/**        linguist-generated=true
+app/public/css_compiled/** linguist-generated=true
+*.min.css                  linguist-generated=true
+*.min.js                   linguist-generated=true
+*.map                      linguist-generated=true
