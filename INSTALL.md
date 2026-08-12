@@ -2,7 +2,9 @@
 
 Este documento descreve como preparar, configurar e executar o projeto GLPI Docker em ambientes de desenvolvimento e produção.
 
-O projeto utiliza Docker Multi-stage builds, Docker Compose, arquivos de ambiente, templates, `ENTRYPOINT` e Makefile para padronizar a implantação do GLPI.
+O projeto fornece uma infraestrutura baseada em Docker Multi-stage builds, Docker Compose, arquivos de ambiente, templates, `ENTRYPOINT` e Makefile para padronizar a implantação do GLPI.
+
+Depois de concluir a implantação, consulte o [USAGE.md](USAGE.md) para operar, manter, atualizar e diagnosticar os ambientes.
 
 ## Pré-requisitos
 
@@ -12,12 +14,14 @@ O projeto foi desenvolvido para sistemas GNU/Linux.
 
 Para desenvolvimento em Windows, utilize preferencialmente o WSL e mantenha o repositório em um sistema de arquivos Linux.
 
+Para instalar o WSL, consulte a [documentação oficial da Microsoft](https://learn.microsoft.com/pt-br/windows/wsl/install). No VS Code, o diretório mantido no WSL pode ser acessado com o fluxo descrito no guia de [desenvolvimento remoto no WSL](https://code.visualstudio.com/docs/remote/wsl-tutorial).
+
 ### Ferramentas necessárias
 
 Instale e configure:
 
-- Docker Engine;
-- Docker Compose Plugin;
+- Docker Engine 29.7 ou superior;
+- Docker Compose;
 - Git;
 - GNU Make;
 - `awk`;
@@ -25,8 +29,8 @@ Instale e configure:
 - `grep`;
 - `id`;
 - `usermod`;
-- `sudo`, quando necessário para grupos e permissões;
-- `mysql` e `mysqldump`, quando forem utilizados os alvos de backup e restauração.
+- `sudo` e os utilitários de gerenciamento de usuários, grupos e permissões do sistema, para usar os alvos de permissionamento;
+- `mysql` e `mysqldump`, quando forem utilizados os alvos de backup e restauração;
 
 Confirme as ferramentas principais:
 
@@ -39,20 +43,6 @@ make --version
 
 O usuário atual deve possuir permissão para executar o Docker.
 
-## Visão geral dos ambientes
-
-A arquitetura contempla dois ambientes:
-
-- **Desenvolvimento:** a aplicação GLPI e o banco de dados são executados em containers.
-- **Produção:** a aplicação GLPI é executada em container e o banco de dados é provisionado externamente, em infraestrutura dedicada ou gerenciada.
-
-Os comandos do Makefile com o sufixo `-dev` operam no ambiente de desenvolvimento. Os comandos equivalentes sem esse sufixo operam no ambiente de produção.
-
-```text
-make deploy-dev    # Desenvolvimento
-make deploy        # Produção
-```
-
 ## Obtendo o projeto
 
 Clone o repositório e acesse sua raiz:
@@ -61,91 +51,44 @@ Clone o repositório e acesse sua raiz:
 git clone https://github.com/mendescrafael/glpi-docker.git && cd glpi-docker
 ```
 
-A raiz deve conter, no mínimo:
+## Preparação
+
+### Visão geral dos ambientes
+
+A arquitetura contempla dois ambientes:
+
+- **Desenvolvimento:** a aplicação GLPI e o banco de dados são executados em containers;
+- **Produção:** a aplicação GLPI é executada em container e o banco de dados é provisionado externamente, em infraestrutura dedicada ou gerenciada;
+
+Os comandos do Makefile com o sufixo `-dev` operam no ambiente de desenvolvimento. Os comandos equivalentes sem esse sufixo operam no ambiente de produção.
 
 ```text
-app/
-data/
-.env.example
-.env.dev.example
-docker-compose.yml
-docker-compose.dev.yml
-Dockerfile
-Makefile
-README.md
+make deploy-dev    # Desenvolvimento
+make deploy        # Produção
 ```
 
-## Estrutura principal
+### Personalização do projeto
 
-A estrutura base do projeto é:
+Antes da primeira execução, revise os valores específicos do ambiente, da organização e do cliente.
 
-```text
-./
-├── app/
-├── data/
-│   ├── app/
-│   │   ├── config/
-│   │   ├── files/
-│   │   ├── marketplace/
-│   │   └── plugins/
-│   ├── db/
-│   │   └── dumps/
-│   ├── misc/
-│   └── utils/
-│       ├── ssl/
-│       │   ├── cert-file.crt.example
-│       │   └── cert-file.key.example
-│       ├── templates/
-│       │   ├── app-site-cfg.conf.template
-│       │   ├── app-site-vhost.conf.template
-│       │   └── app-cron.template
-│       └── app-entrypoint
-├── .env
-├── .env.dev
-├── .env.dev.example
-├── .env.example
-├── docker-compose.dev.yml
-├── docker-compose.yml
-├── Dockerfile
-├── Makefile
-└── README.md
-```
-
-Os diretórios possuem as seguintes responsabilidades:
-
-- `app/`: código-fonte base do GLPI;
-- `data/app/config/`: configurações persistentes do GLPI;
-- `data/app/files/`: arquivos persistentes do GLPI;
-- `data/app/marketplace/`: plugins instalados pelo Marketplace;
-- `data/app/plugins/`: plugins instalados manualmente;
-- `data/db/dumps/`: dumps do banco de dados no ambiente de desenvolvimento;
-- `data/misc/`: arquivos auxiliares;
-- `data/utils/ssl/`: certificados SSL;
-- `data/utils/templates/`: templates processados pelo `ENTRYPOINT`;
-- `data/utils/app-entrypoint`: script de inicialização da aplicação.
-
-## Personalização do projeto
-
-Antes da primeira execução, revise os valores específicos do ambiente e do cliente.
-
-### Identidade do projeto
+#### Identidade do projeto
 
 Revise:
 
-- nome e descrição do projeto;
-- autores e licença;
-- identificação do cliente;
-- versão do GLPI;
-- imagens base da aplicação e do banco;
-- nomes de imagens, containers, volumes e redes;
-- domínio, portas e certificados;
-- metadados OCI da imagem.
+- Nome e descrição do projeto;
+- Autores e licença;
+- Nome e versão do GLPI;
+- Identificação da organização, do cliente e do ambiente;
+- Imagens base da aplicação e do banco de dados;
+- Nomes de imagens, containers, volumes e redes;
+- Domínio, portas e certificados;
+- Metadados OCI da imagem;
 
 Não mantenha valores de exemplo em ambientes reais.
 
-### Código da aplicação
+#### Código da aplicação
 
-O código-fonte base do GLPI fica em:
+O código-fonte do GLPI fica em:
 
 ```text
 app/
@@ -153,19 +96,21 @@ app/
 
 Confirme que a versão presente nesse diretório corresponde à versão declarada em `APP_VERSION` e à configuração do Dockerfile.
 
-### Imagens base e estágios
+#### Imagens base e estágios
 
 Revise o Dockerfile para garantir que ele:
 
-- utilize a imagem PHP adequada;
-- instale as extensões necessárias ao GLPI;
-- copie o GLPI para o caminho correto;
-- preserve os estágios `BASE`, `APP`, `DEV` e `PRD`;
-- defina corretamente `WORKDIR`, `ENTRYPOINT` e `CMD`;
-- mantenha as ferramentas de diagnóstico apenas no estágio `DEV`;
-- mantenha as configurações de desempenho e segurança no estágio `PRD`.
+- Utilize a imagem PHP adequada;
+- Instale as extensões necessárias ao GLPI;
+- Copie o GLPI para `APP_DIR` no estágio `BASE`, com proprietário e grupo do servidor web;
+- Preserve o estágio `BASE` para o código, o `ENTRYPOINT`, os templates, os certificados e os pacotes comuns;
+- Preserve o estágio `APP` para as extensões e configurações PHP exigidas pelo GLPI;
+- Preserve o estágio `DEV` para as ferramentas de diagnóstico e as configurações PHP de desenvolvimento;
+- Preserve o estágio `PRD` para as configurações PHP de desempenho e segurança e para a limpeza da imagem;
+- Defina corretamente `WORKDIR` e `ENTRYPOINT`;
+- Utilize em `APP_ENV` somente um target final existente, atualmente `dev` ou `prd`;
 
-## Arquivos de ambiente
+### Arquivos de ambiente
 
 Crie os arquivos locais a partir dos modelos:
 
@@ -176,9 +121,9 @@ cp .env.dev.example .env.dev
 
 > **Importante:** o alvo `check` verifica a existência de `.env`, `.env.dev`, `docker-compose.yml`, `docker-compose.dev.yml` e `Dockerfile`. Portanto, os dois arquivos de ambiente devem existir mesmo quando a operação pretendida utilizar apenas a configuração de produção.
 
-### `.env`
+#### `.env`
 
-O arquivo `.env` reúne as definições gerais e de produção, incluindo metadados, versões, nomes dos recursos, caminhos, grupos e dados de conexão.
+O arquivo `.env` reúne as definições gerais e de produção.
 
 O Makefile lê diretamente estas variáveis:
 
@@ -193,27 +138,28 @@ LICENSE
 PROJECT_NAME
 PROJECT_DESCRIPTION
 PROJECT_AUTHORS
+WEBSERVER_USER
 WEBSERVER_GROUP
 ```
 
-Preencha também todas as demais variáveis documentadas em `.env.example`.
+Preencha também todas as demais variáveis utilizadas pelo Dockerfile, pelo Docker Compose, pelos templates e pelo `ENTRYPOINT`.
 
-### `.env.dev`
+#### `.env.dev`
 
-O arquivo `.env.dev` complementa as definições para o ambiente de desenvolvimento, no qual o banco de dados também é executado pelo Docker Compose.
+O arquivo `.env.dev` complementa as definições para o ambiente de desenvolvimento, incluindo as configurações do banco de dados executado em container.
 
 Preencha todas as variáveis documentadas em `.env.dev.example`.
 
-### Segurança dos arquivos de ambiente
+#### Segurança dos arquivos de ambiente
 
 Os arquivos `.env` e `.env.dev` podem conter credenciais, tokens, chaves, senhas e identificadores internos.
 
-- Não versione esses arquivos.
-- Não utilize valores reais nos arquivos `.example`.
-- Não compartilhe seus conteúdos em logs ou documentação pública.
-- Restrinja o acesso conforme as políticas do ambiente.
+- Não versione esses arquivos;
+- Não utilize valores reais nos arquivos `.example`;
+- Não compartilhe seus conteúdos em logs ou documentação pública;
+- Restrinja o acesso conforme as políticas do ambiente;
 
-## Identificação e versionamento da imagem
+### Identificação e versionamento da imagem
 
 O Makefile forma a tag da imagem a partir de `APP_VERSION` e da revisão atual do Git.
 
@@ -243,19 +189,32 @@ Exiba as informações técnicas detectadas:
 make info
 ```
 
-## Docker Compose
+### Docker Compose
 
 Revise os arquivos Docker Compose para refletir o ambiente no qual o GLPI será executado.
 
-### Produção
+#### Produção
 
-O arquivo `docker-compose.yml` define o serviço da aplicação GLPI e os recursos necessários à execução em produção. O banco de dados deve permanecer externo ao Compose.
+O arquivo `docker-compose.yml` define o serviço da aplicação GLPI, a rede, os bind mounts persistentes de configuração, arquivos e plugins, as portas HTTP e HTTPS e os demais recursos necessários à execução em produção. O banco de dados deve permanecer externo ao Compose.
 
-### Desenvolvimento
+O serviço utiliza `restart: always`, verifica a aplicação por HTTP em `http://localhost` a cada 60 segundos, com timeout de 10 segundos, três tentativas e período inicial de 90 segundos. Os logs usam o driver `json-file`, limitado a cinco arquivos de 10 MB. O target de build é obtido de `APP_ENV`.
 
-O arquivo `docker-compose.dev.yml` complementa o Compose principal com o serviço de banco de dados, volumes, portas e configurações destinadas ao ambiente local.
+O VirtualHost HTTP redireciona as requisições para HTTPS. O estágio `DEV` declara as duas portas com `EXPOSE`, enquanto o estágio `PRD` declara somente a porta HTTPS; o Compose ainda publica os dois mapeamentos porque `EXPOSE` funciona apenas como metadado da imagem.
 
-### Serviços
+#### Desenvolvimento
+
+O arquivo `docker-compose.dev.yml` complementa o Compose principal com:
+
+- Serviço de banco de dados MySQL;
+- Volume persistente do banco de dados;
+- Diretório de dumps;
+- Bind mount `./app:${APP_DIR}:rw`, que substitui no container o código incorporado à imagem;
+- Portas locais;
+- Política `restart: no` para os serviços locais;
+- Verificação do MySQL a cada 30 segundos, com timeout de 10 segundos, três tentativas e período inicial de 20 segundos;
+- Rotação dos logs do MySQL em cinco arquivos de 10 MB;
+
+#### Serviços
 
 Mantenha os nomes dos serviços compatíveis com as variáveis do Makefile:
 
@@ -266,7 +225,7 @@ SERVICE_DB ?= db
 
 Caso os serviços recebam outros nomes, altere essas variáveis no Makefile ou forneça os valores na execução.
 
-## Templates
+### Templates
 
 Os arquivos em:
 
@@ -274,13 +233,19 @@ Os arquivos em:
 data/utils/templates/
 ```
 
-contêm a estrutura das configurações do servidor web e do agendador.
+contêm a estrutura das configurações do Apache e do agendador:
+
+```text
+app-site-cfg.conf.template
+app-site-vhost.conf.template
+app-cron.template
+```
 
 Defina os valores nos arquivos `.env` e `.env.dev`, e não diretamente nos templates.
 
-Edite os templates somente quando a estrutura da configuração do GLPI precisar ser alterada.
+Adapte os templates somente quando o GLPI exigir mudanças estruturais, como domínio, proxy reverso, certificados, cabeçalhos, regras de reescrita, agendamento de tarefas ou caminhos internos.
 
-## ENTRYPOINT
+### ENTRYPOINT
 
 O arquivo:
 
@@ -290,30 +255,46 @@ data/utils/app-entrypoint
 
 prepara o ambiente antes de iniciar o GLPI.
 
-A rotina pode processar variáveis nos templates, configurar o servidor web, preparar diretórios, ajustar permissões, gerar arquivos de configuração e iniciar o processo principal do container.
+A rotina valida variáveis e caminhos obrigatórios, processa os templates, prepara os diretórios persistentes, configura o Cron e o Apache e, por fim, substitui o processo do script por `apache2-foreground`.
 
-Revise o script quando houver mudança de caminhos, servidor web, certificados ou rotina de inicialização.
+O Dockerfile não define `USER`, portanto o `ENTRYPOINT` inicia como `root`. Esse privilégio é necessário para ajustar propriedades e modos, escrever configurações em `/etc`, iniciar o Cron e preparar o Apache. As tarefas do Cron e os alvos `glpi-*` do Makefile executam o GLPI com o usuário definido em `WEBSERVER_USER`; a imagem base do Apache deve manter seus processos de atendimento compatíveis com esse mesmo usuário e grupo.
 
-## Certificados SSL
+As permissões do código incorporado à imagem são normalizadas durante o build: proprietário e grupo definidos por `WEBSERVER_USER` e `WEBSERVER_GROUP`, diretórios `750` e arquivos `640`. Dessa forma, o processo web pode executar as rotinas administrativas do GLPI sem conceder acesso aos demais usuários do sistema.
 
-Quando forem utilizados certificados próprios, copie-os para:
+Depois da montagem dos volumes, o `ENTRYPOINT` inicializa os diretórios graváveis `APP_CONFIG_DIR`, `APP_FILES_DIR`, `${APP_DIR}/marketplace`, `${APP_DIR}/plugins` e `${APP_DIR}/public/css_compiled` com o mesmo proprietário e grupo, diretórios `2770` e arquivos `660`. O caminho `public/css_compiled` permite que `build:compile_scss` grave os artefatos compilados.
+
+Os quatro primeiros caminhos integram a validação de diretórios obrigatórios e são criados quando não existem. `${APP_DIR}/public/css_compiled` faz parte do core do GLPI e, por isso, não integra essa validação; o caminho deve existir no código fornecido em `app/`, mas ainda recebe o permissionamento gravável durante a inicialização.
+
+O ajuste é recursivo somente quando o proprietário, o grupo ou o modo do diretório raiz não corresponde ao padrão. Nas inicializações seguintes, o processamento é ignorado. O bit `setgid` mantém o grupo definido por `WEBSERVER_GROUP` nos novos arquivos e diretórios criados nesses caminhos.
+
+No desenvolvimento, o bind mount de `./app` substitui o conteúdo e as permissões incorporados à imagem. O `ENTRYPOINT` não normaliza todo o core montado; ele ajusta somente os cinco diretórios graváveis listados anteriormente. Preserve no hospedeiro a leitura e a travessia necessárias ao usuário do servidor web.
+
+Os diretórios de certificados recebem modo `710` e seus arquivos, modo `640`. O arquivo gerado para o Cron recebe modo `644` antes da inicialização do serviço.
+
+> **Atenção:** a validação atual registra nos logs o nome e o valor das variáveis obrigatórias, inclusive as variáveis de conexão com o banco de dados. Restrinja o acesso aos logs do container e não os compartilhe sem sanitização.
+
+Revise o script quando houver mudança de caminhos, servidor web, certificados ou rotina de inicialização. Evite operações destrutivas, migrações irreversíveis ou rotinas que não possam ser executadas novamente com segurança.
+
+### Certificados SSL
+
+Antes da implantação, copie os certificados para:
 
 ```text
 data/utils/ssl/
 ```
 
-Mantenha os nomes esperados:
+Mantenha os nomes exigidos pelo `ENTRYPOINT`:
 
 ```text
 cert-file.crt
 cert-file.key
 ```
 
-Os arquivos com sufixo `.example` servem somente como referência.
+Os arquivos com sufixo `.example` servem somente como referência de nomenclatura. A inicialização falhará se os dois arquivos esperados não estiverem presentes.
 
 Nunca versione chaves privadas reais.
 
-## Grupos do usuário
+### Grupos do usuário
 
 Depois de preencher `.env`, confira os valores de `DOCKER_GROUP` e `WEBSERVER_GROUP`.
 
@@ -342,14 +323,17 @@ make apply-permissions
 
 O comando aplica recursivamente:
 
-- diretórios: `775`;
-- arquivos: `664`;
-- proprietário: usuário atual;
-- grupo: valor de `DOCKER_GROUP`.
+- Diretórios: `2775`, com o bit `setgid`;
+- Arquivos regulares: `664`;
+- Arquivos executáveis: `775`;
+- Proprietário: usuário atual;
+- Grupo: valor de `DOCKER_GROUP`;
 
 > **Atenção:** o alvo utiliza `sudo chown` e `sudo chmod` em toda a raiz do projeto. Revise o conteúdo do diretório antes de executá-lo.
 
-## Verificação inicial
+Esse alvo corrige as permissões do workspace no hospedeiro. Ao iniciar ou reiniciar o container, o `ENTRYPOINT` aplica o padrão específico da aplicação somente aos diretórios graváveis; ele não reaplica `750` e `640` a todo o bind mount de código do ambiente de desenvolvimento.
+
+## Verificação
 
 Liste os comandos disponíveis:
 
@@ -369,18 +353,18 @@ Consulte a versão calculada da imagem:
 make version
 ```
 
-## Validação da configuração
+### Validação da configuração
 
 Antes de construir as imagens, valide o Docker Compose.
 
-### Desenvolvimento
+#### Desenvolvimento
 
 ```bash
 make config-dev
 make validate-dev
 ```
 
-### Produção
+#### Produção
 
 ```bash
 make config
@@ -391,11 +375,11 @@ make validate
 
 Corrija todos os erros antes de prosseguir.
 
-## Implantação em desenvolvimento
+### Implantação em desenvolvimento
 
 O ambiente de desenvolvimento combina `docker-compose.yml`, `docker-compose.dev.yml`, `.env` e `.env.dev`.
 
-### Construção e inicialização
+#### Construção e inicialização
 
 Execute:
 
@@ -412,7 +396,7 @@ make build-dev
 make up-dev
 ```
 
-### Verificação
+#### Verificação
 
 ```bash
 make status-dev
@@ -420,7 +404,7 @@ make status-all-dev
 make logs-dev
 ```
 
-### Acesso ao container
+#### Acesso ao container
 
 ```bash
 make app-shell-dev
@@ -428,25 +412,25 @@ make app-shell-dev
 
 Depois que os containers estiverem ativos, conclua a instalação inicial do GLPI quando necessário.
 
-## Implantação em produção
+### Implantação em produção
 
 O ambiente de produção utiliza `docker-compose.yml` e `.env`.
 
-### Preparação
+#### Preparação
 
 Antes da implantação:
 
-- provisione o banco de dados externo;
-- crie o banco e o usuário;
-- conceda somente as permissões necessárias;
-- configure a conectividade entre o container e o banco;
-- configure os valores de conexão em `.env`;
-- valide DNS, domínio, portas, certificados e firewall;
-- confirme os volumes persistentes;
-- revise limites de recursos e políticas de reinicialização;
-- realize backup dos dados existentes.
+- Provisione o banco de dados externo;
+- Crie o banco e o usuário;
+- Conceda somente as permissões necessárias;
+- Configure a conectividade entre a aplicação e o banco;
+- Configure os valores de conexão em `.env`;
+- Valide DNS, domínio, portas, certificados e firewall;
+- Confirme os volumes persistentes;
+- Revise limites de recursos e políticas de reinicialização;
+- Realize backup dos dados existentes;
 
-### Construção e inicialização
+#### Construção e inicialização
 
 Execute:
 
@@ -463,7 +447,7 @@ make build
 make up
 ```
 
-### Verificação
+#### Verificação
 
 ```bash
 make status
@@ -471,7 +455,7 @@ make status-all
 make logs
 ```
 
-### Acesso ao container
+#### Acesso ao container
 
 ```bash
 make app-shell
@@ -479,78 +463,88 @@ make app-shell
 
 Depois, conclua a instalação ou atualização do GLPI.
 
-## Comandos operacionais
+### Detalhes específicos do GLPI Docker
 
-### Parar os containers
+#### Conclusão da instalação do GLPI
 
-```bash
-make stop-dev
-make stop
+Depois que os serviços estiverem ativos, acesse o endereço configurado em `WEBSERVER_DOMAIN_NAME`.
+
+Quando a instância ainda não estiver instalada, conclua o assistente de instalação do GLPI utilizando os dados de banco configurados para o ambiente.
+
+Após concluir:
+
+- Acesse o GLPI com uma conta administrativa;
+- Altere ou remova as contas padrão conforme as recomendações de segurança do GLPI;
+- Confirme a gravação dos arquivos persistentes em `data/app/`;
+- Confirme que os containers permanecem saudáveis;
+- Consulte os logs;
+- Valide envio de e-mails, tarefas automáticas, autenticação e plugins;
+
+#### Persistência e plugins
+
+Preserve os diretórios:
+
+```text
+data/app/config/
+data/app/files/
+data/app/marketplace/
+data/app/plugins/
 ```
 
-### Parar e remover os containers
+`data/app/marketplace/` armazena plugins instalados pelo Marketplace. `data/app/plugins/` armazena plugins instalados manualmente no modo legacy.
+
+Antes de atualizar ou reconstruir o ambiente, confirme que esses diretórios estão corretamente montados e incluídos na política de backup.
+
+### Verificação final
+
+Antes de considerar a implantação concluída, confirme:
+
+- A versão do código em `app/` corresponde a `APP_VERSION`;
+- `.env` e `.env.dev` foram criados e revisados;
+- Os valores de exemplo foram substituídos;
+- O banco externo de produção foi provisionado, quando aplicável;
+- Os certificados SSL ativos foram adicionados com os nomes esperados;
+- Os diretórios persistentes foram definidos e incluídos na política de backup;
+- `make validate-dev` foi executado para o ambiente de desenvolvimento;
+- `make validate` foi executado para o ambiente de produção;
+- A implantação foi testada antes do uso em produção;
+- O assistente de instalação ou o procedimento de atualização do GLPI foi concluído;
+- As contas padrão foram alteradas ou removidas;
+- Tarefas automáticas, e-mail, autenticação e plugins foram validados;
+- Backups e procedimentos de recuperação foram definidos;
+
+## Atualização
+
+Antes de atualizar o GLPI Docker:
+
+- Gere backup do banco de dados;
+- Preserve os diretórios persistentes;
+- Revise alterações em `.env.example` e `.env.dev.example`;
+- Compare o Dockerfile, os arquivos Compose, o `ENTRYPOINT` e os templates;
+- Verifique se personalizações locais serão sobrescritas;
+- Valide primeiro em desenvolvimento ou homologação;
+
+### Desenvolvimento
 
 ```bash
-make down-dev
-make down
-```
-
-### Reiniciar os serviços
-
-```bash
-make restart-dev
-make restart
-```
-
-### Reconstruir o ambiente
-
-```bash
+make validate-dev
 make rebuild-dev
-make rebuild
+make status-dev
+make logs-dev
 ```
 
-### Acompanhar os logs
+### Produção
 
 ```bash
-make logs-dev
+make validate
+make rebuild
+make status
 make logs
 ```
 
-## Banco de dados no ambiente de desenvolvimento
+## Próximos passos
 
-O Makefile disponibiliza operações para o banco de dados do ambiente de desenvolvimento.
-
-### Acesso ao cliente
-
-```bash
-make db-cli-dev
-```
-
-Quando necessário:
-
-```bash
-make db-cli-dev DATABASE_USER=<USUARIO>
-```
-
-### Gerar dump
-
-Os comandos `mysql` e `mysqldump` devem estar disponíveis no host.
-
-Execute:
-
-```bash
-make db-dump-dev DATABASE_USER=<USUARIO> DATABASE_NAME=<BANCO>
-```
-
-Quando os valores não forem fornecidos, o Makefile os solicita interativamente.
-
-### Restaurar dump
-
-```bash
-make db-restore-dev DATABASE_USER=<USUARIO> DATABASE_NAME=<BANCO> DATABASE_DUMP_SQL=<ARQUIVO_SQL>
-```
-
-Antes de restaurar, confirme o banco de destino, mantenha um backup atual e verifique a compatibilidade do dump.
+Depois de concluir a implantação e a verificação do GLPI, consulte o [USAGE.md](USAGE.md) para operar, manter, atualizar e diagnosticar os ambientes.
 
 ## Diagnóstico
 
@@ -588,7 +582,9 @@ Execute:
 make apply-permissions
 ```
 
-Revise também `DOCKER_GROUP` e `WEBSERVER_GROUP`.
+Revise também `DOCKER_GROUP`, `WEBSERVER_USER` e `WEBSERVER_GROUP`. Depois do ajuste no hospedeiro, reinicie o ambiente com `make restart-dev` no desenvolvimento ou `make restart` na produção para que o `ENTRYPOINT` inicialize os diretórios graváveis.
+
+Se a falha ocorrer somente no desenvolvimento, lembre-se de que `./app:${APP_DIR}:rw` substitui as permissões definidas no build. Confirme que o usuário do servidor web consegue atravessar `APP_DIR/bin`, ler `bin/console` e gravar em `public/css_compiled`.
 
 ### Erros do Docker Compose
 
@@ -624,115 +620,10 @@ make logs
 
 Analise os logs antes de reconstruir ou remover recursos.
 
-## Listagem de recursos Docker
+### Certificados não encontrados
 
-```bash
-make list-images
-make list-volumes
-make list-networks
-make list-all
-```
+Confirme que `data/utils/ssl/` contém os arquivos `cert-file.crt` e `cert-file.key`. Os arquivos `.example` não são utilizados pelo `ENTRYPOINT` como certificados ativos.
 
-## Limpeza
+## Segurança
 
-O projeto disponibiliza:
-
-```bash
-make prune-cache
-make prune-volumes
-make prune-networks
-make clean
-```
-
-`clean` executa a limpeza de cache de build, volumes não utilizados e redes não utilizadas.
-
-> **Cuidado:** esses comandos atuam sobre recursos não utilizados do hospedeiro e podem afetar outros projetos Docker. Liste os recursos e realize backups antes da execução.
-
-## Atualização
-
-Antes de atualizar o GLPI Docker:
-
-- gere backup do banco de dados;
-- preserve `data/app/config/`, `data/app/files/`, `data/app/marketplace/` e `data/app/plugins/`;
-- revise alterações em `.env.example` e `.env.dev.example`;
-- compare o Dockerfile, os arquivos Compose, o `ENTRYPOINT` e os templates;
-- valide primeiro em desenvolvimento ou homologação.
-
-### Desenvolvimento
-
-```bash
-make validate-dev
-make rebuild-dev
-make status-dev
-make logs-dev
-```
-
-### Produção
-
-```bash
-make validate
-make rebuild
-make status
-make logs
-```
-
-## Recomendações
-
-- Utilize Linux em produção.
-- Utilize WSL para desenvolvimento em Windows.
-- Mantenha o banco de dados de produção em infraestrutura externa, resiliente e protegida.
-- Não armazene credenciais no repositório.
-- Não versione chaves privadas.
-- Use os arquivos `.env` para valores e os templates para estrutura.
-- Valide primeiro em desenvolvimento ou homologação.
-- Mantenha backups do banco e dos diretórios persistentes.
-- Monitore logs, espaço em disco, memória, CPU e disponibilidade.
-- Não exponha o banco de dados diretamente à internet.
-- Use o Makefile para padronizar as operações.
-
-## Detalhes específicos do GLPI Docker
-
-### Conclusão da instalação do GLPI
-
-Depois que os serviços estiverem ativos, acesse o endereço configurado para a aplicação.
-
-Quando a instância ainda não estiver instalada, conclua o assistente de instalação do GLPI utilizando os dados de banco configurados para o ambiente.
-
-Após concluir:
-
-- acesse o GLPI com uma conta administrativa;
-- confirme a gravação dos arquivos persistentes em `data/app/`;
-- confirme que os containers permanecem saudáveis;
-- consulte os logs;
-- valide envio de e-mails, tarefas automáticas, autenticação e plugins.
-
-### Limpeza do cache do GLPI
-
-Desenvolvimento:
-
-```bash
-make glpi-cache-clear-dev
-```
-
-Produção:
-
-```bash
-make glpi-cache-clear
-```
-
-Utilize esses comandos quando alterações do GLPI, configurações ou plugins não forem reconhecidas imediatamente.
-
-### Persistência e plugins
-
-Preserve os diretórios:
-
-```text
-data/app/config/
-data/app/files/
-data/app/marketplace/
-data/app/plugins/
-```
-
-`data/app/marketplace/` armazena plugins instalados pelo Marketplace. `data/app/plugins/` armazena plugins instalados manualmente.
-
-Antes de atualizar ou reconstruir o ambiente, confirme que esses diretórios estão corretamente montados e incluídos na política de backup.
+Proteja os arquivos de ambiente, certificados, dumps e diretórios persistentes. Para comunicar vulnerabilidades de forma responsável, siga o processo privado descrito no [SECURITY.md](SECURITY.md).

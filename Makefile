@@ -21,9 +21,12 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# Configuração.
+# -----------------------------------------------------------------------------
 .DEFAULT_GOAL := info
 
-# Definindo o shell usado.
+# Shell utilizado pelo Make.
 SHELL := /bin/bash
 
 # Arquivos de variáveis de ambiente.
@@ -52,9 +55,10 @@ SERVICE_DB ?= db
 EXECUTABLE_DB ?= mysql
 EXECUTABLE_DB_DUMP ?= mysqldump
 
-# Usuário (UID) e grupo (GID) dono dos arquivos e diretórios do projeto.
-# Para usuário considera-se o usuário atual (`id -un`). Para grupo
-# considera-se o grupo `DOCKER_GROUP` (grupo gerenciado pelo Docker).
+# Usuário (UID) e grupo (GID) proprietários dos arquivos e diretórios do projeto:
+#
+# - Para usuário considera-se o usuário atual (`id -un`);
+# - Para grupo considera-se o grupo `DOCKER_GROUP` (grupo gerenciado pelo Docker);
 CURRENT_USER ?= $(shell id -un)
 
 # Largura de tabela para saída de dados na CLI.
@@ -75,7 +79,7 @@ $(shell \
 	fi)
 endef
 
-# Valores das variáveis de ambiente extraídos e atribuídos as suas respectivas variáveis.
+# Valores das variáveis de ambiente extraídos e atribuídos às suas respectivas variáveis.
 APP_BASE_IMG := $(call getenv,APP_BASE_IMG)
 APP_NAME := $(call getenv,APP_NAME)
 APP_VERSION := $(call getenv,APP_VERSION)
@@ -89,7 +93,7 @@ PROJECT_AUTHORS := $(call getenv,PROJECT_AUTHORS)
 WEBSERVER_GROUP := $(call getenv,WEBSERVER_GROUP)
 
 # Captura o Git hash ID do último commit (veja `git log`).
-# Adiciona também '-dirty' se houver arquivos modificados não 
+# Adiciona também '-dirty' se houver arquivos modificados não
 # commitados ou mantém `REVISION` vazio se não houver um repositório Git.
 REVISION := $(shell \
 	if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then \
@@ -97,11 +101,14 @@ REVISION := $(shell \
 		git diff --quiet || printf "%s" "-dirty"; \
 	fi)
 
-# Exporta a variável para o Docker Compose capturar (usadas nos metadados do Dockerfile).
+# Exporta as variáveis usadas pelo Docker Compose nos metadados do Dockerfile.
 export TAG_IMAGE := $(APP_VERSION)$(if $(strip $(REVISION)),-$(REVISION))
 export BUILD_DATE := $(shell date '+%Y-%m-%d %H:%M')
 export REVISION
 
+# -----------------------------------------------------------------------------
+# Declaração dos alvos.
+# -----------------------------------------------------------------------------
 .PHONY: \
 	check \
 	check-db-commands \
@@ -146,11 +153,16 @@ export REVISION
 	list-networks \
 	list-all \
 	version \
+	glpi-cache-clear \
+	glpi-cache-clear-dev \
 	help
 
+# -----------------------------------------------------------------------------
+# Verificações.
+# -----------------------------------------------------------------------------
 # Verifica se os comandos e arquivos necessários estão disponíveis.
 check:
-	@for cmd in docker git awk getent grep id usermod; do \
+	@for cmd in docker git awk chown getent grep id usermod; do \
 		command -v $$cmd >/dev/null 2>&1 || { \
 			printf "[ ERROR ] Comando '%s' não encontrado. Instale o(s) software(s) e tente novamente.\n\n" "$$cmd"; \
 			exit 1; \
@@ -163,7 +175,7 @@ check:
 		$(DOCKER_COMPOSE_FILE_DEV) \
 		Dockerfile; do \
 		[ -f "$$file" ] || { \
-			printf "[ ERROR ] Arquivo '%s' não encontrado. Consulte o arquivo 'README.md' para obter ajudar.\n\n" "$$file"; \
+			printf "[ ERROR ] Arquivo '%s' não encontrado. Consulte o arquivo 'README.md' para obter ajuda.\n\n" "$$file"; \
 			exit 1; \
 		}; \
 	done
@@ -177,17 +189,20 @@ check-db-commands:
 		}; \
 	done
 
+# -----------------------------------------------------------------------------
+# Permissionamento.
+# -----------------------------------------------------------------------------
 apply-permissions: check
 	@printf "\nAplicando permissões de arquivos e diretórios em: '$(CURDIR)'\n\n"
 
 	@printf "Alterando proprietário para '%s:%s'...\n" "$(CURRENT_USER)" "$(DOCKER_GROUP)"
-	@sudo chown -R $(CURRENT_USER):$(DOCKER_GROUP) .
-	
-	@printf "Aplicando permissões aos diretórios (775 -> 'rwxrwxr-x')...\n"
-	@sudo find . -type d -exec chmod 775 {} \;
-	
-	@printf "Aplicando permissões aos arquivos (664 -> 'rw-rw-r--')...\n"
-	@sudo find . -type f -exec chmod 664 {} \;
+	@sudo chown -R "$(CURRENT_USER):$(DOCKER_GROUP)" .
+
+	@printf "Aplicando permissões aos diretórios (2775, preservando bits especiais)...\n"
+	@sudo find . -type d -exec chmod ug+rwx,o+rx,o-w,g+s {} +
+
+	@printf "Aplicando permissões aos arquivos (664/775, preservando executáveis)...\n"
+	@sudo find . -type f -exec chmod u=rwX,g=rwX,o=rX {} +
 
 	@printf "\nPermissões aplicadas com sucesso.\n\n"
 
@@ -209,6 +224,9 @@ add-user-groups: check
 	done; \
 	printf "IMPORTANTE: Faça logout/login (ou reinicie a sessão) para que a alteração tenha efeito.\n\n"
 
+# -----------------------------------------------------------------------------
+# Informações do projeto.
+# -----------------------------------------------------------------------------
 info: check
 	@PROP_WIDTH=$(PROP_WIDTH); \
 	VALUE_WIDTH=$(VALUE_WIDTH); \
@@ -250,6 +268,9 @@ info: check
 	printf "\nPara mais informações, consulte o arquivo 'README.md'.\n"; \
 	printf "Para ajuda, execute: make help\n\n"
 
+# -----------------------------------------------------------------------------
+# Gerenciamento dos containers.
+# -----------------------------------------------------------------------------
 build: check
 	@$(COMPOSE) build
 
@@ -313,12 +334,18 @@ logs: check
 logs-dev: check
 	@$(COMPOSE_DEV) logs -f
 
+# -----------------------------------------------------------------------------
+# Acesso ao container da aplicação.
+# -----------------------------------------------------------------------------
 app-shell: check
 	@$(COMPOSE) exec -it $(SERVICE_APP) $(SHELL)
 
 app-shell-dev: check
 	@$(COMPOSE_DEV) exec -it $(SERVICE_APP) $(SHELL)
 
+# -----------------------------------------------------------------------------
+# Banco de dados.
+# -----------------------------------------------------------------------------
 db-cli-dev: check
 	@USER="$(DATABASE_USER)"; \
 	[ -n "$$USER" ] || read -p "Usuário: " USER; \
@@ -338,6 +365,9 @@ db-restore-dev: check-db-commands
 	[ -n "$$DUMP_SQL" ] || read -p "Arquivo de dump SQL: " DUMP_SQL; \
 	$(EXECUTABLE_DB) -v -u "$$USER" -p "$$DB" < "$$DUMP_SQL"
 
+# -----------------------------------------------------------------------------
+# Limpeza do ambiente Docker.
+# -----------------------------------------------------------------------------
 prune-cache: check
 	@docker builder prune -af
 
@@ -349,6 +379,9 @@ prune-networks: check
 
 clean: prune-cache prune-volumes prune-networks
 
+# -----------------------------------------------------------------------------
+# Listagem dos recursos Docker.
+# -----------------------------------------------------------------------------
 list-images: check
 	@docker image ls
 	@printf "\n"
@@ -363,16 +396,24 @@ list-networks: check
 
 list-all: list-images list-volumes list-networks
 
+# -----------------------------------------------------------------------------
+# Versão.
+# -----------------------------------------------------------------------------
 version: check
 	@printf "%s\n" "$(TAG_IMAGE)"
 
-# TODO: Adicione aqui alvos para comandos específicos da aplicação.
+# -----------------------------------------------------------------------------
+# Comandos específicos da aplicação.
+# -----------------------------------------------------------------------------
 glpi-cache-clear: check
 	@$(COMPOSE) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console cache:clear" $(WEBSERVER_GROUP)
 
 glpi-cache-clear-dev: check
 	@$(COMPOSE_DEV) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console cache:clear" $(WEBSERVER_GROUP)
 
+# -----------------------------------------------------------------------------
+# Ajuda.
+# -----------------------------------------------------------------------------
 help:
 	@printf "Uso: make [COMANDO] [ARG...]\n\n"
 
@@ -380,88 +421,88 @@ help:
 	@printf "%12s %s\n\n" "" "Para o ambiente de PRODUÇÃO, utilize os comandos equivalentes SEM o sufixo '-dev'."
 
 	@printf "Gerenciamento e execução:\n"
-	@printf "  %-25s %s\n" "build," "Constrói as imagens Docker dos serviços."
+	@printf "  %-30s %s\n" "build," "Constrói as imagens Docker dos serviços."
 	@printf "    build-dev\n\n"
 
-	@printf "  %-25s %s\n" "up," "Cria e inicia os containers em segundo plano."
+	@printf "  %-30s %s\n" "up," "Cria e inicia os containers em segundo plano."
 	@printf "    up-dev\n\n"
 
-	@printf "  %-25s %s\n" "down," "Para e remove os containers, redes e recursos associados."
+	@printf "  %-30s %s\n" "down," "Para e remove os containers, redes e recursos associados."
 	@printf "    down-dev\n\n"
 
-	@printf "  %-25s %s\n" "stop," "Interrompe a execução dos containers sem removê-los."
+	@printf "  %-30s %s\n" "stop," "Interrompe a execução dos containers sem removê-los."
 	@printf "    stop-dev\n\n"
 
-	@printf "  %-25s %s\n" "deploy," "Implanta a aplicação construindo as imagens Docker dos serviços,"
+	@printf "  %-30s %s\n" "deploy," "Implanta a aplicação construindo as imagens Docker dos serviços,"
 	@printf "    %-23s %s\n\n" "deploy-dev" "criando e iniciando os containers, executando o 'build' e 'up' respectivamente."
 
-	@printf "  %-25s %s\n" "rebuild," "Reconstrói as imagens e recria os containers."
+	@printf "  %-30s %s\n" "rebuild," "Reconstrói as imagens e recria os containers."
 	@printf "    rebuild-dev\n\n"
-	
-	@printf "  %-25s %s\n" "restart," "Para e inicia novamente os containers."
+
+	@printf "  %-30s %s\n" "restart," "Para e inicia novamente os containers."
 	@printf "    restart-dev\n\n"
 
-	@printf "  %-25s %s\n" "status," "Lista os containers em execução gerenciados pelo Docker Compose."
+	@printf "  %-30s %s\n" "status," "Lista os containers em execução gerenciados pelo Docker Compose."
 	@printf "    status-dev\n\n"
 
-	@printf "  %-25s %s\n" "status-all," "Lista todos os containers (incluindo containers parados) gerenciados pelo Docker Compose."
+	@printf "  %-30s %s\n" "status-all," "Lista todos os containers (incluindo containers parados) gerenciados pelo Docker Compose."
 	@printf "    status-all-dev\n\n"
 
-	@printf "  %-25s %s\n" "config," "Exibe informações do arquivo Compose no formato canônico."
+	@printf "  %-30s %s\n" "config," "Exibe informações do arquivo Compose no formato canônico."
 	@printf "    config-dev\n\n"
 
-	@printf "  %-25s %s\n" "validate," "Valida o arquivo Compose no modo silencioso. Útil para scripts e pipelines."
+	@printf "  %-30s %s\n" "validate," "Valida o arquivo Compose no modo silencioso. Útil para scripts e pipelines."
 	@printf "    validate-dev\n\n"
 
-	@printf "  %-25s %s\n" "logs," "Exibe os logs dos serviços em tempo real."
+	@printf "  %-30s %s\n" "logs," "Exibe os logs dos serviços em tempo real."
 	@printf "    logs-dev\n\n"
-	
+
 	@printf "Aplicação:\n"
-	@printf "  %-25s %s\n" "app-shell," "Abre um terminal no container de aplicação."
+	@printf "  %-30s %s\n" "app-shell," "Abre um terminal no container de aplicação."
 	@printf "    app-shell-dev\n\n"
 
 	@printf "Banco de dados:\n"
-	@printf "  %-25s %s\n" "db-cli-dev" "Abre um cliente Shell no container de banco de dados."
+	@printf "  %-30s %s\n" "db-cli-dev" "Abre um cliente Shell no container de banco de dados."
 	@printf "    DATABASE_USER=<USER>\n\n"
 
-	@printf "  %-25s %s\n" "db-dump-dev" "Gera um backup (dump SQL) do banco de dados."
+	@printf "  %-30s %s\n" "db-dump-dev" "Gera um backup (dump SQL) do banco de dados."
 	@printf "    DATABASE_USER=<USER>\n"
 	@printf "    DATABASE_NAME=<NAME>\n\n"
 
-	@printf "  %-25s %s\n" "db-restore-dev" "Restaura um banco de dados a partir de um arquivo de dump SQL."
+	@printf "  %-30s %s\n" "db-restore-dev" "Restaura um banco de dados a partir de um arquivo de dump SQL."
 	@printf "    DATABASE_USER=<USER>\n"
 	@printf "    DATABASE_NAME=<NAME>\n"
 	@printf "    DATABASE_DUMP_SQL=<DUMP_SQL>\n\n"
 
 	@printf "Limpeza de ambiente:\n"
-	@printf "  %-25s %s\n\n" "prune-cache" "Remove o cache de construção (build cache) não utilizado pelo Docker."
-	@printf "  %-25s %s\n\n" "" "CUIDADO! Os comandos abaixo podem apagar os recursos criados."
-	@printf "  %-25s %s\n" "prune-volumes" "Remove todos os volumes Docker que não estão em uso."
-	@printf "  %-25s %s\n" "prune-networks" "Remove todas as redes Docker que não estão sendo utilizadas."
-	@printf "  %-25s %s\n\n" "clean" "Limpeza total do ambiente. Remove o build cache, volumes e redes não utilizadas."
+	@printf "  %-30s %s\n\n" "prune-cache" "Remove o cache de construção (build cache) não utilizado pelo Docker."
+	@printf "  %-30s %s\n\n" "" "CUIDADO! Os comandos abaixo podem apagar os recursos criados."
+	@printf "  %-30s %s\n" "prune-volumes" "Remove todos os volumes Docker que não estão em uso."
+	@printf "  %-30s %s\n" "prune-networks" "Remove todas as redes Docker que não estão sendo utilizadas."
+	@printf "  %-30s %s\n\n" "clean" "Limpeza total do ambiente. Remove o build cache, volumes e redes não utilizadas."
 
 	@printf "Listar:\n"
-	@printf "  %-25s %s\n" "list-images" "Lista as imagens Docker disponíveis no hospedeiro."
-	@printf "  %-25s %s\n" "list-volumes" "Lista os volumes Docker existentes no hospedeiro."
-	@printf "  %-25s %s\n" "list-networks" "Lista as redes Docker existentes no hospedeiro."
-	@printf "  %-25s %s\n\n" "list-all" "Lista todos os componentes anteriores existentes no hospedeiro."
+	@printf "  %-30s %s\n" "list-images" "Lista as imagens Docker disponíveis no hospedeiro."
+	@printf "  %-30s %s\n" "list-volumes" "Lista os volumes Docker existentes no hospedeiro."
+	@printf "  %-30s %s\n" "list-networks" "Lista as redes Docker existentes no hospedeiro."
+	@printf "  %-30s %s\n\n" "list-all" "Lista todos os componentes anteriores existentes no hospedeiro."
 
 	@printf "Permissionamento:\n"
-	@printf "  %-25s %s\n" "" "NOTA: Os comandos abaixo podem ser usados para corrigir possíveis erros relacionados"
-	@printf "  %-25s %s\n\n" "" "a permissões nos arquivos e diretórios do projeto."
+	@printf "  %-30s %s\n" "" "NOTA: Os comandos abaixo podem ser usados para corrigir possíveis erros relacionados"
+	@printf "  %-30s %s\n\n" "" "a permissões nos arquivos e diretórios do projeto."
 
-	@printf "  %-25s %s\n" "apply-permissions" "Aplica as permissões de usuário e grupo dono nos arquivos e diretórios do projeto."
-	@printf "  %-25s %s\n" "" "Para usuário considera-se o usuário atual (`id -un`) e para grupo considera-se"
-	@printf "  %-25s %s\n\n" "" "o grupo '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)."
+	@printf "  %-30s %s\n" "apply-permissions" "Aplica as permissões de usuário e grupo dono nos arquivos e diretórios do projeto."
+	@printf "  %-30s %s\n" "" "Para usuário considera-se o usuário atual '`id -un`' e para grupo considera-se"
+	@printf "  %-30s %s\n\n" "" "o grupo '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)."
 
-	@printf "  %-25s %s\n" "add-user-groups" "Verifica e adiciona o usuário atual (`id -un`) aos grupos '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)"
-	@printf "  %-25s %s\n\n" "" "e '$(WEBSERVER_GROUP)' (grupo gerenciado pelo web server)."
+	@printf "  %-30s %s\n" "add-user-groups" "Verifica e adiciona o usuário atual '`id -un`' aos grupos '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)"
+	@printf "  %-30s %s\n\n" "" "e '$(WEBSERVER_GROUP)' (grupo gerenciado pelo web server)."
 
 	@printf "Comandos comuns:\n"
-	@printf "  %-25s %s\n" "info" "Informações sobre o projeto."
-	@printf "  %-25s %s\n" "version" "Versão do projeto."
-	@printf "  %-25s %s\n\n" "help" "Este menu de ajuda."
+	@printf "  %-30s %s\n" "info" "Informações sobre o projeto."
+	@printf "  %-30s %s\n" "version" "Versão do projeto."
+	@printf "  %-30s %s\n\n" "help" "Este menu de ajuda."
 
-	@printf "Comandos específicos de gerenciamente e manutenção da aplicação:\n"
-	@printf "  %-25s %s\n" "glpi-cache-clear," "Limpa o cache do GLPI."
+	@printf "Comandos específicos de gerenciamento e manutenção da aplicação:\n"
+	@printf "  %-30s %s\n" "glpi-cache-clear," "Limpa o cache do GLPI."
 	@printf "    glpi-cache-clear-dev\n\n"

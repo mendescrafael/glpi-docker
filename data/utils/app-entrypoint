@@ -51,7 +51,7 @@ function validate_envs() {
             exit 1
         fi
 
-        log "[ OK ] Variável obrigatória definida: '${var}'"
+        log "[ OK ] Variável obrigatória definida: '${var}=${!var}'"
     done
 
     log "[ OK ] Todos as variáveis obrigatórias foram definidas"
@@ -177,7 +177,7 @@ function cron_config() {
         && log "[ OK ] Variáveis exportadas com sucesso"
         
     # Inicia o serviço de cron.
-    log "Iniciando o Cron..."
+    log "Iniciando serviço Cron..."
     service cron start \
         && log "[ OK ] Cron iniciado com sucesso"
 }

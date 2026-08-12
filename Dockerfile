@@ -216,7 +216,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     iproute2 \
     iputils-ping \
-    dnsutils
+    dnsutils \
+    git
 
 # Configurações de desenvolvimento do PHP.
 RUN { \
