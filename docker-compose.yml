@@ -53,6 +53,8 @@ services:
         - VENDOR_LABEL=${VENDOR_LABEL:-Contoso}
         - WEBSERVER_PORT=${WEBSERVER_PORT}
         - WEBSERVER_PORT_SSL=${WEBSERVER_PORT_SSL}
+        - WEBSERVER_USER=${WEBSERVER_USER}
+        - WEBSERVER_GROUP=${WEBSERVER_GROUP}
     image: ${VENDOR_ID}/${APP_NAME}-${CLIENT_ID}:${TAG_IMAGE:-latest}
     container_name: ${APP_NAME}-${CLIENT_ID}-app-${APP_SERVICE}-${APP_ENV}
     hostname: app-${APP_SERVICE}-${APP_ENV}

@@ -82,6 +82,8 @@ ARG TZ
 ARG VENDOR_LABEL
 ARG WEBSERVER_PORT
 ARG WEBSERVER_PORT_SSL
+ARG WEBSERVER_USER
+ARG WEBSERVER_GROUP
 
 # Variáveis de ambiente, usadas durante a inicialização e execução dos containers.
 #
@@ -103,7 +105,15 @@ LABEL org.opencontainers.image.revision="${REVISION}"
 WORKDIR ${APP_DIR}
 
 # Conteúdo da aplicação.
-COPY app/ .
+#
+# O código incorporado à imagem pertence ao usuário e ao grupo do web server,
+# sem conceder acesso aos demais usuários do sistema. Os diretórios que exigem
+# escrita recebem permissões específicas durante a inicialização. Para mais
+# informações, consulte o arquivo `data/utils/app-entrypoint`.
+COPY --chown=${WEBSERVER_USER}:${WEBSERVER_GROUP} app/ .
+RUN chown "${WEBSERVER_USER}:${WEBSERVER_GROUP}" "${APP_DIR}" \
+    && find "${APP_DIR}" -type d -exec chmod 750 {} + \
+    && find "${APP_DIR}" -type f -exec chmod 640 {} +
 
 # Diretório de certificados SSL.
 COPY data/utils/ssl/ ${SSL_DIR}/

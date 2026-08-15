@@ -22,4 +22,4 @@
 # -----------------------------------------------------------------------------
 
 # Cron da aplicação.
-*/1 * * * *     www-data    /usr/local/bin/php ${APP_DIR}/front/cron.php &>/dev/null
+*/1 * * * *     ${WEBSERVER_USER}    /usr/local/bin/php ${APP_DIR}/front/cron.php &>/dev/null

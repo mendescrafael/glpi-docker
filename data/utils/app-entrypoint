@@ -23,23 +23,21 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 # -----------------------------------------------------------------------------
 
-### BEGIN INIT INFO
-# Description:      Processo de inicialização, responsável por executar tarefas
-#                   de configuração antes da inicialização da aplicação.
-### END INIT INFO
-#
-# Author: Rafael Mendes <mendescrafael@outlook.com>
+# -----------------------------------------------------------------------------
+# Processo de inicialização, responsável por executar tarefas de configuração
+# antes da inicialização da aplicação.
+# -----------------------------------------------------------------------------
 
 # Interrompe o script em caso de erros.
 set -e
 
 # Função auxiliar para saídas de logs.
-function log() {
+log() {
     printf '[%(%Y-%m-%d %H:%M:%S)T] %s\n' -1 "$*"
 }
 
 # Validação de variáveis de ambiente obrigatórias.
-function validate_envs() {
+validate_envs() {
     local type="$1"
     shift
 
@@ -58,7 +56,7 @@ function validate_envs() {
 }
 
 # Validação dos diretórios e arquivos obrigatórios.
-function validate_paths() {
+validate_paths() {
     local type="$1"
     shift
 
@@ -113,7 +111,7 @@ function validate_paths() {
 }
 
 # Substituição de variáveis dos templates.
-function expand_templates() {
+expand_templates() {
     local vars="$1"
     local src="$2"
     local dst="$3"
@@ -125,41 +123,53 @@ function expand_templates() {
     log "[ OK ] Substituição realizada com sucesso. Arquivo copiado para '${dst}'"
 }
 
+# Inicialização de um diretório gravável pela aplicação.
+initialize_writable_dir() {
+    local path="$1"
+    local uid_gid
+    local current_uid_gid
+    local current_mode
+
+    uid_gid="$(id -u "${WEBSERVER_USER}"):$(getent group "${WEBSERVER_GROUP}" | cut -d: -f3)"
+    current_uid_gid="$(stat -c '%u:%g' "${path}")"
+    current_mode="$(stat -c '%a' "${path}")"
+
+    if [[ "${current_uid_gid}" == "${uid_gid}" && "${current_mode}" == "2770" ]]; then
+        log "[ OK ] Permissões já inicializadas para '${path}'. Ajuste recursivo ignorado"
+        return
+    fi
+
+    log "Inicializando permissões de '${path}'..."
+
+    # O modo temporário sinaliza uma inicialização incompleta caso o processo seja
+    # interrompido antes da aplicação do modo definitivo no diretório raiz.
+    chmod 700 "${path}" \
+        && chown -R "${WEBSERVER_USER}:${WEBSERVER_GROUP}" "${path}" \
+        && find "${path}" -mindepth 1 -type d -exec chmod 2770 {} + \
+        && find "${path}" -type f -exec chmod 660 {} + \
+        && chmod 2770 "${path}" \
+        && log "[ OK ] Permissões inicializadas com sucesso para '${path}'"
+}
+
 # Configuração da aplicação.
-function app_config() {
+app_config() {
     log "Inicializando configurações da aplicação..."
 
-    # Usuário e Grupo dono dos arquivos e diretórios (UID e GID).
-    # - Usuário: www-data
-    # - Grupo: www-data
-    local uid_gid=www-data:www-data
-
-    # Ajuste de permissões do diretório de aplicação.
-    log "Ajustando permissões de '${APP_DIR}'..."
-    chown -R ${uid_gid} "${APP_DIR}" \
-        && find "${APP_DIR}" -type d -exec chmod 775 {} \; \
-        && find "${APP_DIR}" -type f -exec chmod 664 {} \; \
-        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_DIR}'"
-
-    # Ajuste de permissões do diretório de configuração.
-    log "Ajustando permissões de '${APP_CONFIG_DIR}'..."
-    chown -R ${uid_gid} "${APP_CONFIG_DIR}" \
-        && find "${APP_CONFIG_DIR}" -type d -exec chmod 775 {} \; \
-        && find "${APP_CONFIG_DIR}" -type f -exec chmod 664 {} \; \
-        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_CONFIG_DIR}'"
-
-    # Ajuste de permissões do diretório de persistência de dados.
-    log "Ajustando permissões de '${APP_FILES_DIR}'..."
-    chown -R ${uid_gid} "${APP_FILES_DIR}" \
-        && log "[ OK ] Permissões ajustadas com sucesso para '${APP_FILES_DIR}'"
+    # O código incorporado à imagem é preparado durante o build. Somente os
+    # diretórios graváveis precisam de inicialização específica em runtime.
+    initialize_writable_dir "${APP_CONFIG_DIR}"
+    initialize_writable_dir "${APP_FILES_DIR}"
+    initialize_writable_dir "${APP_DIR}/marketplace"
+    initialize_writable_dir "${APP_DIR}/plugins"
+    initialize_writable_dir "${APP_DIR}/public/css_compiled"
 }
 
 # Configuração do Cron.
-function cron_config() {
+cron_config() {
     log "Inicializando configurações do Cron..."
 
     # Substituição de variáveis do template Cron.
-    local vars='${APP_DIR}'
+    local vars='${APP_DIR} ${WEBSERVER_USER}'
     expand_templates \
         "${vars}" \
         "${CRON_TEMPLATE_FILE}" \
@@ -175,7 +185,7 @@ function cron_config() {
     log "Exportando variáveis de ambiente para '/etc/environment'..."
     printenv | grep -v "no_proxy" > /etc/environment \
         && log "[ OK ] Variáveis exportadas com sucesso"
-        
+
     # Inicia o serviço de cron.
     log "Iniciando serviço Cron..."
     service cron start \
@@ -183,7 +193,7 @@ function cron_config() {
 }
 
 # Configuração do web server.
-function webserver_config() {
+webserver_config() {
     log "Inicializando configurações do web server..."
 
     # Substituição de variáveis de configuração do site para o web server.
@@ -226,7 +236,7 @@ function webserver_config() {
 }
 
 # Função principal de inicialização.
-function init() {
+main() {
     log "Inicializando ENTRYPOINT..."
 
     # Validação de variáveis de ambiente obrigatórias.
@@ -256,13 +266,17 @@ function init() {
         "WEBSERVER_DOMAIN_NAME" \
         "WEBSERVER_ADMIN_EMAIL" \
         "WEBSERVER_PORT" \
-        "WEBSERVER_PORT_SSL"
+        "WEBSERVER_PORT_SSL" \
+        "WEBSERVER_USER" \
+        "WEBSERVER_GROUP"
 
     # Validação dos diretórios obrigatórios.
     validate_paths dir \
         "${APP_DIR}" \
         "${APP_CONFIG_DIR}" \
         "${APP_FILES_DIR}" \
+        "${APP_DIR}/marketplace" \
+        "${APP_DIR}/plugins" \
         "${CRON_DIR}" \
         "${SSL_DIR}" \
         "${TEMPLATES_DIR}" \
@@ -282,4 +296,4 @@ function init() {
     webserver_config
 }
 
-init
+main

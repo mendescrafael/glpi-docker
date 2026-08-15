@@ -10,6 +10,8 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Alterado
 
+- Adotado padrão de funções POSIX no script `data/utils/app-entrypoint`;
+
 ### Descontinuado
 
 ### Removido

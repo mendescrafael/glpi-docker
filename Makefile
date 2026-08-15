@@ -79,6 +79,12 @@ $(shell \
 	fi)
 endef
 
+# Executa um comando do console do GLPI no container da aplicação com o usuário
+# configurado para o web server.
+define run_glpi_console
+$(1) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console $(2)" $(WEBSERVER_USER)
+endef
+
 # Valores das variáveis de ambiente extraídos e atribuídos às suas respectivas variáveis.
 APP_BASE_IMG := $(call getenv,APP_BASE_IMG)
 APP_NAME := $(call getenv,APP_NAME)
@@ -90,6 +96,7 @@ LICENSE := $(call getenv,LICENSE)
 PROJECT_NAME := $(call getenv,PROJECT_NAME)
 PROJECT_DESCRIPTION := $(call getenv,PROJECT_DESCRIPTION)
 PROJECT_AUTHORS := $(call getenv,PROJECT_AUTHORS)
+WEBSERVER_USER := $(call getenv,WEBSERVER_USER)
 WEBSERVER_GROUP := $(call getenv,WEBSERVER_GROUP)
 
 # Captura o Git hash ID do último commit (veja `git log`).
@@ -153,8 +160,32 @@ export REVISION
 	list-networks \
 	list-all \
 	version \
+	glpi-console-list \
+	glpi-console-list-dev \
 	glpi-cache-clear \
 	glpi-cache-clear-dev \
+	glpi-build-compile-scss \
+	glpi-build-compile-scss-dev \
+	glpi-system-check-requirements \
+	glpi-system-check-requirements-dev \
+	glpi-system-list-services \
+	glpi-system-list-services-dev \
+	glpi-system-status \
+	glpi-system-status-dev \
+	glpi-database-check-schema-integrity \
+	glpi-database-check-schema-integrity-dev \
+	glpi-diagnostic-check-documents-integrity \
+	glpi-diagnostic-check-documents-integrity-dev \
+	glpi-diagnostic-check-source-code-integrity \
+	glpi-diagnostic-check-source-code-integrity-dev \
+	glpi-plugin-list \
+	glpi-plugin-list-dev \
+	glpi-maintenance-enable \
+	glpi-maintenance-enable-dev \
+	glpi-maintenance-disable \
+	glpi-maintenance-disable-dev \
+	glpi-task-unlock \
+	glpi-task-unlock-dev \
 	help
 
 # -----------------------------------------------------------------------------
@@ -405,11 +436,83 @@ version: check
 # -----------------------------------------------------------------------------
 # Comandos específicos da aplicação.
 # -----------------------------------------------------------------------------
+glpi-console-list: check
+	@$(call run_glpi_console,$(COMPOSE),list)
+
+glpi-console-list-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),list)
+
 glpi-cache-clear: check
-	@$(COMPOSE) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console cache:clear" $(WEBSERVER_GROUP)
+	@$(call run_glpi_console,$(COMPOSE),cache:clear)
 
 glpi-cache-clear-dev: check
-	@$(COMPOSE_DEV) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console cache:clear" $(WEBSERVER_GROUP)
+	@$(call run_glpi_console,$(COMPOSE_DEV),cache:clear)
+
+glpi-build-compile-scss: check
+	@$(call run_glpi_console,$(COMPOSE),build:compile_scss)
+
+glpi-build-compile-scss-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),build:compile_scss)
+
+glpi-system-check-requirements: check
+	@$(call run_glpi_console,$(COMPOSE),system:check_requirements)
+
+glpi-system-check-requirements-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),system:check_requirements)
+
+glpi-system-list-services: check
+	@$(call run_glpi_console,$(COMPOSE),system:list_services)
+
+glpi-system-list-services-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),system:list_services)
+
+glpi-system-status: check
+	@$(call run_glpi_console,$(COMPOSE),system:status)
+
+glpi-system-status-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),system:status)
+
+glpi-database-check-schema-integrity: check
+	@$(call run_glpi_console,$(COMPOSE),database:check_schema_integrity)
+
+glpi-database-check-schema-integrity-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),database:check_schema_integrity)
+
+glpi-diagnostic-check-documents-integrity: check
+	@$(call run_glpi_console,$(COMPOSE),diagnostic:check_documents_integrity)
+
+glpi-diagnostic-check-documents-integrity-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),diagnostic:check_documents_integrity)
+
+glpi-diagnostic-check-source-code-integrity: check
+	@$(call run_glpi_console,$(COMPOSE),diagnostic:check_source_code_integrity)
+
+glpi-diagnostic-check-source-code-integrity-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),diagnostic:check_source_code_integrity)
+
+glpi-plugin-list: check
+	@$(call run_glpi_console,$(COMPOSE),plugin:list)
+
+glpi-plugin-list-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),plugin:list)
+
+glpi-maintenance-enable: check
+	@$(call run_glpi_console,$(COMPOSE),maintenance:enable)
+
+glpi-maintenance-enable-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),maintenance:enable)
+
+glpi-maintenance-disable: check
+	@$(call run_glpi_console,$(COMPOSE),maintenance:disable)
+
+glpi-maintenance-disable-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),maintenance:disable)
+
+glpi-task-unlock: check
+	@$(call run_glpi_console,$(COMPOSE),task:unlock --all)
+
+glpi-task-unlock-dev: check
+	@$(call run_glpi_console,$(COMPOSE_DEV),task:unlock --all)
 
 # -----------------------------------------------------------------------------
 # Ajuda.
@@ -504,5 +607,41 @@ help:
 	@printf "  %-30s %s\n\n" "help" "Este menu de ajuda."
 
 	@printf "Comandos específicos de gerenciamento e manutenção da aplicação:\n"
-	@printf "  %-30s %s\n" "glpi-cache-clear," "Limpa o cache do GLPI."
+	@printf "  %-48s %s\n" "glpi-console-list," "Lista os comandos disponibilizados pelo console do GLPI."
+	@printf "    glpi-console-list-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-cache-clear," "Limpa o cache do GLPI."
 	@printf "    glpi-cache-clear-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-build-compile-scss," "Compila os arquivos SCSS do GLPI."
+	@printf "    glpi-build-compile-scss-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-system-check-requirements," "Verifica os requisitos de sistema do GLPI."
+	@printf "    glpi-system-check-requirements-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-system-list-services," "Lista os serviços internos verificados pelo GLPI."
+	@printf "    glpi-system-list-services-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-system-status," "Verifica o estado dos serviços internos do GLPI."
+	@printf "    glpi-system-status-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-database-check-schema-integrity," "Verifica a integridade do esquema do banco de dados."
+	@printf "    glpi-database-check-schema-integrity-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-diagnostic-check-documents-integrity," "Verifica a integridade dos documentos do GLPI."
+	@printf "    glpi-diagnostic-check-documents-integrity-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-diagnostic-check-source-code-integrity," "Verifica a integridade do código-fonte do GLPI."
+	@printf "    glpi-diagnostic-check-source-code-integrity-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-plugin-list," "Lista os plugins reconhecidos pelo GLPI."
+	@printf "    glpi-plugin-list-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-maintenance-enable," "Ativa o modo de manutenção do GLPI."
+	@printf "    glpi-maintenance-enable-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-maintenance-disable," "Desativa o modo de manutenção do GLPI."
+	@printf "    glpi-maintenance-disable-dev\n\n"
+
+	@printf "  %-48s %s\n" "glpi-task-unlock," "Desbloqueia todas as tarefas automáticas consideradas travadas."
+	@printf "    glpi-task-unlock-dev\n\n"
