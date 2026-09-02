@@ -1,0 +1,91 @@
+# -----------------------------------------------------------------------------
+# Como reutilizar este arquivo.
+#
+# Este arquivo separa as configurações em dois grupos:
+#
+# - Diretrizes reutilizáveis: configurações base que devem permanecer iguais
+#   entre projetos;
+# - Especificidades deste projeto: permissões de arquivos, diretórios e rede que
+#   devem ser revisadas para cada projeto.
+#
+# Ao copiar este arquivo para outro projeto, mantenha o bloco de diretrizes
+# reutilizáveis e altere somente o bloco de especificidades deste projeto.
+#
+# Este arquivo usa perfis de permissões. Não combine estas opções com
+# `sandbox_mode` ou `[sandbox_workspace_write]` em outra camada de configuração.
+# -----------------------------------------------------------------------------
+
+# =============================================================================
+# Diretrizes reutilizáveis.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Configurações base.
+# -----------------------------------------------------------------------------
+approval_policy = "on-request"
+approvals_reviewer = "user"
+allow_login_shell = false
+web_search = "live"
+
+# -----------------------------------------------------------------------------
+# Perfil de permissão.
+#
+# O identificador genérico evita renomear o perfil ao reutilizar este arquivo.
+# -----------------------------------------------------------------------------
+default_permissions = "project"
+
+[permissions.project]
+description = "Workspace em leitura, com exceções de acesso definidas pelo projeto."
+extends = ":read-only"
+
+# -----------------------------------------------------------------------------
+# Controle geral do sistema de arquivos.
+# -----------------------------------------------------------------------------
+[permissions.project.filesystem]
+":minimal" = "read"
+glob_scan_max_depth = 6
+
+# =============================================================================
+# Especificidades deste projeto.
+#
+# Ao reutilizar este arquivo, revise somente as configurações abaixo conforme
+# os arquivos, diretórios e recursos de rede necessários ao novo projeto.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Controle de acesso dentro da raiz do workspace.
+# -----------------------------------------------------------------------------
+[permissions.project.filesystem.":workspace_roots"]
+
+# Workspace completo com acesso de escrita.
+"." = "write"
+
+# Arquivos e diretórios com acesso de escrita.
+".codex/" = "write"
+".git/" = "write"
+"app/" = "write"
+
+# Arquivos e diretórios com acesso somente leitura.
+# TODO: adicione aqui diretórios somente leitura.
+
+# Arquivos e diretórios com acesso negado.
+".env" = "deny"
+".env.dev" = "deny"
+"**/.env" = "deny"
+"**/.env.dev" = "deny"
+"data/app/config/" = "deny"
+"data/db/dumps/" = "deny"
+"data/misc/" = "deny"
+"data/utils/ssl/" = "deny"
+
+# -----------------------------------------------------------------------------
+# Controle de acesso à rede.
+# -----------------------------------------------------------------------------
+[permissions.project.network]
+enabled = true
+mode = "full"
+
+# Libera qualquer domínio público. Destinos locais e privados continuam
+# bloqueados por padrão.
+[permissions.project.network.domains]
+"*" = "allow"

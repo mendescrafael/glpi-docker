@@ -24,7 +24,7 @@
 # -----------------------------------------------------------------------------
 # Configuração.
 # -----------------------------------------------------------------------------
-.DEFAULT_GOAL := info
+.DEFAULT_GOAL := help
 
 # Shell utilizado pelo Make.
 SHELL := /bin/bash
@@ -49,6 +49,7 @@ COMPOSE_DEV := docker compose \
 
 # Nome dos serviços Docker Compose (veja `docker-compose.yml` e `docker-compose.dev.yml`).
 SERVICE_APP ?= app
+SERVICE_WEB ?= web
 SERVICE_DB ?= db
 
 # Executáveis de banco de dados.
@@ -79,25 +80,27 @@ $(shell \
 	fi)
 endef
 
-# Executa um comando do console do GLPI no container da aplicação com o usuário
-# configurado para o web server.
-define run_glpi_console
-$(1) exec -it $(SERVICE_APP) su -s $(SHELL) -c "php bin/console $(2)" $(WEBSERVER_USER)
+# Executa um comando da aplicação no container com o usuário de runtime
+# configurado. Use esta função nos alvos específicos adicionados ao template.
+define run_app_command
+$(1) exec -it $(SERVICE_APP) su -s $(SHELL) -c "$(2)" $(APP_RUNTIME_USER)
 endef
 
 # Valores das variáveis de ambiente extraídos e atribuídos às suas respectivas variáveis.
 APP_BASE_IMG := $(call getenv,APP_BASE_IMG)
-APP_NAME := $(call getenv,APP_NAME)
 APP_VERSION := $(call getenv,APP_VERSION)
+APP_BUILD_ENV := $(call getenv,APP_BUILD_ENV)
 CLIENT_ID := $(call getenv,CLIENT_ID)
 DB_BASE_IMG := $(call getenv,DB_BASE_IMG)
 DOCKER_GROUP := $(call getenv,DOCKER_GROUP)
 LICENSE := $(call getenv,LICENSE)
+PROJECT_LABEL := $(call getenv,PROJECT_LABEL)
 PROJECT_NAME := $(call getenv,PROJECT_NAME)
 PROJECT_DESCRIPTION := $(call getenv,PROJECT_DESCRIPTION)
 PROJECT_AUTHORS := $(call getenv,PROJECT_AUTHORS)
-WEBSERVER_USER := $(call getenv,WEBSERVER_USER)
-WEBSERVER_GROUP := $(call getenv,WEBSERVER_GROUP)
+APP_RUNTIME_USER := $(call getenv,APP_RUNTIME_USER)
+APP_RUNTIME_GROUP := $(call getenv,APP_RUNTIME_GROUP)
+WEBSERVER_BASE_IMG := $(call getenv,WEBSERVER_BASE_IMG)
 
 # Captura o Git hash ID do último commit (veja `git log`).
 # Adiciona também '-dirty' se houver arquivos modificados não
@@ -148,6 +151,8 @@ export REVISION
 	logs-dev \
 	app-shell \
 	app-shell-dev \
+	web-shell \
+	web-shell-dev \
 	db-cli-dev \
 	db-dump-dev \
 	db-restore-dev \
@@ -239,7 +244,7 @@ apply-permissions: check
 
 add-user-groups: check
 	@USER="$(CURRENT_USER)"; \
-	for GROUP in $(DOCKER_GROUP) $(WEBSERVER_GROUP); do \
+	for GROUP in $(DOCKER_GROUP) $(APP_RUNTIME_GROUP); do \
 		printf "Verificando grupo '%s'...\n" "$$GROUP"; \
 		if ! getent group "$$GROUP" >/dev/null; then \
 			printf "[ ERROR ] Grupo '%s' não encontrado.\n\n" "$$GROUP"; \
@@ -283,17 +288,19 @@ info: check
 	border; \
 	row "Propriedade" "Valor"; \
 	border; \
-	row "Projeto" "$(PROJECT_NAME)"; \
+	row "Projeto" "$(PROJECT_LABEL)"; \
 	row "Descrição" "$(PROJECT_DESCRIPTION)"; \
 	row "Autor" "$(PROJECT_AUTHORS)"; \
 	row "Licença" "$(LICENSE)"; \
 	border; \
-	row "Nome da imagem (Docker)" "$(APP_NAME)-$(CLIENT_ID)"; \
+	row "Nome da imagem (Docker)" "$(PROJECT_NAME)-$(CLIENT_ID)"; \
 	row "Tag da imagem (Docker)" "$(TAG_IMAGE)"; \
 	row "Versão da aplicação" "$(APP_VERSION)"; \
+	row "Ambiente de build" "$(APP_BUILD_ENV)"; \
 	row "Revisão (Git hash ID)" "$(REVISION)"; \
 	border; \
 	row "Imagem base (App) (Dockerfile)" "$(APP_BASE_IMG)"; \
+	row "Imagem base (Web) (Dockerfile)" "$(WEBSERVER_BASE_IMG)"; \
 	row "Imagem base (DB) (Ambiente dev)" "$(DB_BASE_IMG)"; \
 	border; \
 	printf "\nPara mais informações, consulte o arquivo 'README.md'.\n"; \
@@ -373,6 +380,12 @@ app-shell: check
 
 app-shell-dev: check
 	@$(COMPOSE_DEV) exec -it $(SERVICE_APP) $(SHELL)
+
+web-shell: check
+	@$(COMPOSE) exec -it $(SERVICE_WEB) /bin/sh
+
+web-shell-dev: check
+	@$(COMPOSE_DEV) exec -it $(SERVICE_WEB) /bin/sh
 
 # -----------------------------------------------------------------------------
 # Banco de dados.
@@ -518,7 +531,7 @@ glpi-task-unlock-dev: check
 # Ajuda.
 # -----------------------------------------------------------------------------
 help:
-	@printf "Uso: make [COMANDO] [ARG...]\n\n"
+	@printf "Uso: make [COMANDO] [VARIAVEL=valor]\n\n"
 
 	@printf "%-12s %s\n" "IMPORTANTE:" "Os comandos com o sufixo '-dev' executam operações no ambiente de DESENVOLVIMENTO."
 	@printf "%12s %s\n\n" "" "Para o ambiente de PRODUÇÃO, utilize os comandos equivalentes SEM o sufixo '-dev'."
@@ -561,8 +574,11 @@ help:
 	@printf "    logs-dev\n\n"
 
 	@printf "Aplicação:\n"
-	@printf "  %-30s %s\n" "app-shell," "Abre um terminal no container de aplicação."
+	@printf "  %-30s %s\n" "app-shell," "Abre um terminal no container de aplicação PHP-FPM."
 	@printf "    app-shell-dev\n\n"
+
+	@printf "  %-30s %s\n" "web-shell," "Abre um terminal no container do Nginx."
+	@printf "    web-shell-dev\n\n"
 
 	@printf "Banco de dados:\n"
 	@printf "  %-30s %s\n" "db-cli-dev" "Abre um cliente Shell no container de banco de dados."
@@ -599,7 +615,7 @@ help:
 	@printf "  %-30s %s\n\n" "" "o grupo '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)."
 
 	@printf "  %-30s %s\n" "add-user-groups" "Verifica e adiciona o usuário atual '`id -un`' aos grupos '$(DOCKER_GROUP)' (grupo gerenciado pelo Docker)"
-	@printf "  %-30s %s\n\n" "" "e '$(WEBSERVER_GROUP)' (grupo gerenciado pelo web server)."
+	@printf "  %-30s %s\n\n" "" "e '$(APP_RUNTIME_GROUP)' (grupo usado pelo runtime da aplicação)."
 
 	@printf "Comandos comuns:\n"
 	@printf "  %-30s %s\n" "info" "Informações sobre o projeto."

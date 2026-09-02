@@ -50,6 +50,23 @@ Thumbs.db
 !.env.dev.example
 
 # -----------------------------------------------------------------------------
+# Diretório da aplicação consumidora.
+# -----------------------------------------------------------------------------
+app/*
+!app/public/
+!app/.gitattributes
+!app/.gitignore
+!app/CHANGELOG.md
+!app/CONTRIBUTING.md
+!app/INSTALL.md
+!app/LICENSE
+!app/Makefile
+!app/README.md
+!app/SECURITY.md
+!app/SUPPORT.md
+!app/USAGE.md
+
+# -----------------------------------------------------------------------------
 # Diretório de configuração.
 # -----------------------------------------------------------------------------
 data/app/config/*
@@ -78,14 +95,6 @@ data/utils/ssl/*
 # -----------------------------------------------------------------------------
 # Diretório de persistência de dados.
 # -----------------------------------------------------------------------------
-app/files/*
-!app/files/.gitkeep
-!app/files/.htaccess
-
-!app/files/_*/
-app/files/_*/*
-!app/files/_*/.gitkeep
-
 data/app/files/*
 !data/app/files/.gitkeep
 !data/app/files/.htaccess

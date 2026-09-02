@@ -8,7 +8,26 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Adicionado
 
+- Adicionadas as variáveis genéricas `APP_NAME`, `APP_ENV`, `APP_DEBUG`, `APP_URL` e `APP_KEY` aos arquivos de ambiente de exemplo e seu encaminhamento ao container `app`;
+- Adicionada separação entre `DB_PORT` (porta interna) e `DB_PUBLISHED_PORT` (porta publicada no desenvolvimento);
+- Adicionada `PROJECT_LABEL` para definir o nome legível do projeto nos metadados OCI das imagens;
+- Adicionados targets `WEB-BASE`, `WEB-DEV` e `WEB-PRD` para construir o Nginx separadamente do runtime PHP;
+- Adicionado serviço `web` ao Docker Compose, com healthcheck próprio e encaminhamento FastCGI para PHP-FPM;
+- Adicionados `web-shell` e `web-shell-dev` ao Makefile;
+
 ### Alterado
+
+- Renomeado o seletor de ambiente da infraestrutura de `APP_ENV` para `APP_BUILD_ENV`;
+- Adotados `PROJECT_LABEL` como nome legível do projeto e `PROJECT_NAME` como identificador técnico dos recursos Docker, deixando `APP_NAME` disponível para a aplicação consumidora;
+- Alterado o `.gitignore` para permitir que o código em `app/` seja versionado pelo repositório do projeto derivado;
+- Atualizado o mapeamento do banco para usar `DB_PORT` dentro da rede Docker;
+- Centralizadas as regras de ignore no `.gitignore` da raiz;
+- Substituída a imagem `php:8.5-apache` por PHP-FPM e Nginx em containers independentes;
+- Separado o tráfego HTTP/HTTPS do runtime PHP, mantendo a porta FastCGI apenas na rede interna do Compose;
+- Renomeadas as variáveis de usuário e grupo da aplicação para `APP_RUNTIME_USER` e `APP_RUNTIME_GROUP`;
+- Transferido o processamento das configurações web para o `ENTRYPOINT` oficial do Nginx;
+- Alterado o tratamento dos certificados para bind mount somente leitura no serviço `web`, evitando incorporá-los às camadas das imagens;
+- Atualizada a documentação para a arquitetura Nginx + PHP-FPM;
 
 ### Descontinuado
 
@@ -16,7 +35,12 @@ O formato baseia-se em [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Corrigido
 
+- Corrigida a validação das variáveis obrigatórias no `ENTRYPOINT`, que ignorava indevidamente a primeira variável recebida;
+
 ### Segurança
+
+- Removida a exposição dos valores das variáveis obrigatórias nos logs do `ENTRYPOINT`;
+- Mantidos certificados e chaves privadas fora das imagens Docker;
 
 ## [1.1.0] - 2026-08-21
 
